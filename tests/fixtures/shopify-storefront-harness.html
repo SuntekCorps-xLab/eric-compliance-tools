@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shopify theme harness</title>
+    <link rel="stylesheet" href="../../extensions/eric-storefront/assets/eric-storefront.css" />
+    <style>
+      .fixture-theme-chrome {
+        padding: 24px;
+        color: white;
+        background: #784421;
+      }
+
+      body:has([data-surface='workspace']) .fixture-horizon-page-width {
+        width: min(760px, calc(100% - 160px));
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 0 48px;
+      }
+
+      @media (min-width: 990px) {
+        html:has(.page-wrapper),
+        html:has(.page-wrapper) body {
+          height: 100dvh;
+          overflow: hidden;
+        }
+      }
+
+      html.eric-homepage-active,
+      html.eric-homepage-active body,
+      html.eric-workspace-active,
+      html.eric-workspace-active body {
+        height: auto !important;
+        min-height: 100% !important;
+        margin: 0 !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+      }
+
+      html.eric-homepage-active
+        body
+        > :not(.eric-homepage-shell):not(.shopify-block:has(.eric-shopify-root)):not(
+          .eric-shopify-root
+        ):not(script):not(style):not(link) {
+        display: none !important;
+      }
+
+      html.eric-workspace-active
+        body
+        > :not(.eric-workspace-shell):not(.shopify-block:has(.eric-shopify-root)):not(
+          .eric-shopify-root
+        ):not(script):not(style):not(link) {
+        display: none !important;
+      }
+
+      html.eric-workspace-active .eric-workspace-layout-host,
+      html.eric-workspace-active .eric-workspace-shell,
+      html.eric-workspace-active .eric-shopify-root {
+        width: 100% !important;
+        max-width: none !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+        padding-right: 0 !important;
+        padding-left: 0 !important;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="fixture-theme-chrome">Theme header that ERiC replaces on the homepage</header>
+    <div class="page-wrapper fixture-theme-chrome">Horizon page wrapper</div>
+    <div class="fixture-page-shell">
+      <div class="fixture-horizon-page-width">
+        <div class="shopify-block fixture-app-embed-shell">
+          <div
+            class="eric-shopify-root"
+            data-eric-root
+            data-surface="homepage"
+            data-customer-logged-in="false"
+            data-customer-display-name=""
+            data-login-url="/customer_authentication/login?return_to=%2Fpages%2Fworkspace"
+            data-logout-url="/account/logout"
+            data-proxy-base="/apps/eric"
+            data-api-environment="sandbox"
+            data-tenant-api-base="https://tenant-api.example.com"
+            data-account-endpoint="https://tenant-api.example.com/account/account"
+            data-detection-api-base="https://compliance-api.example.com/Eric"
+            data-logout-endpoint="https://tenant-api.example.com/logout"
+            data-hide-theme-chrome="true"
+            data-home-url="/"
+            data-workspace-url="/pages/workspace"
+          ></div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const fixtureParams = new URLSearchParams(window.location.search);
+      const fixtureSurface =
+        fixtureParams.get('surface') === 'workspace' ? 'workspace' : 'homepage';
+      const root = document.querySelector('[data-eric-root]');
+      root.dataset.surface = fixtureSurface;
+      let fixtureShell = root;
+      while (fixtureShell.parentElement && fixtureShell.parentElement !== document.body) {
+        fixtureShell = fixtureShell.parentElement;
+        if (fixtureSurface === 'workspace') {
+          fixtureShell.classList.add('eric-workspace-layout-host');
+        }
+      }
+      fixtureShell.classList.add(`eric-${fixtureSurface}-shell`);
+      document.documentElement.classList.add(`eric-${fixtureSurface}-active`);
+      if (fixtureParams.get('authenticated') === '1') {
+        root.dataset.customerLoggedIn = 'true';
+        root.dataset.customerDisplayName = 'Liquid Display Name';
+      }
+    </script>
+    <script src="../../extensions/eric-storefront/assets/eric-storefront.js" defer></script>
+  </body>
+</html>

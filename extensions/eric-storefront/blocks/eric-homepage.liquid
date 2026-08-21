@@ -1,0 +1,115 @@
+{% comment %}
+  ERiC storefront homepage. Shopify owns customer authentication; ERiC owns the
+  resulting workspace session, tenant permissions, and point ledger.
+{% endcomment %}
+
+{% if request.page_type == 'index' %}
+  {{ 'eric-storefront.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'eric-storefront.js' | asset_url }}" defer></script>
+
+  {%- assign eric_return_to = '/pages/workspace' -%}
+  {%- if routes.storefront_login_url != blank -%}
+    {%- assign eric_login_url = routes.storefront_login_url -%}
+  {%- else -%}
+    {%- capture eric_login_url -%}/customer_authentication/login?return_to={{ eric_return_to | url_encode }}{%- endcapture -%}
+  {%- endif -%}
+
+  {%- capture eric_customer_name -%}
+    {%- if customer and customer.name != blank -%}
+      {{- customer.name | strip -}}
+    {%- elsif customer and customer.first_name != blank -%}
+      {{- customer.first_name | strip -}}
+    {%- endif -%}
+  {%- endcapture -%}
+
+  {% if block.settings.hide_theme_chrome %}
+    <style>
+      html.eric-homepage-active,
+      html.eric-homepage-active body {
+        height: auto !important;
+        min-height: 100% !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+      }
+      html.eric-homepage-active body { margin: 0 !important; }
+      html.eric-homepage-active body > :not(.eric-homepage-shell):not(.shopify-block:has(.eric-shopify-root)):not(.eric-shopify-root):not(script):not(style):not(link):not(#preview-bar-iframe):not(#admin-bar-iframe):not(#web-pixels-manager-sandbox-container) { display: none !important; }
+    </style>
+    <script>document.documentElement.classList.add('eric-homepage-active');</script>
+  {% endif %}
+
+  <div
+    class="eric-shopify-root"
+    data-eric-root
+    data-surface="homepage"
+    data-customer-logged-in="{% if customer %}true{% else %}false{% endif %}"
+    data-customer-display-name="{{ eric_customer_name | escape }}"
+    data-login-url="{{ eric_login_url | escape }}"
+    data-logout-url="{{ routes.account_logout_url | escape }}"
+    data-proxy-base="{{ block.settings.proxy_base | escape }}"
+    data-api-environment="{{ block.settings.api_environment | escape }}"
+    data-tenant-api-base="{{ block.settings.tenant_api_base | escape }}"
+    data-account-endpoint="{{ block.settings.account_endpoint | escape }}"
+    data-detection-api-base="{{ block.settings.detection_api_base | escape }}"
+    data-logout-endpoint="{{ block.settings.logout_endpoint | escape }}"
+    data-hide-theme-chrome="{% if block.settings.hide_theme_chrome %}true{% else %}false{% endif %}"
+    data-home-url="/"
+    data-workspace-url="/pages/workspace"
+    {{ block.shopify_attributes }}
+  ></div>
+{% endif %}
+
+{% schema %}
+{
+  "name": "ERiC homepage",
+  "target": "body",
+  "settings": [
+    {
+      "type": "select",
+      "id": "api_environment",
+      "label": "ERiC API environment",
+      "default": "production",
+      "options": [
+        { "value": "sandbox", "label": "Sandbox" },
+        { "value": "production", "label": "Production" }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "proxy_base",
+      "label": "App Proxy storefront path",
+      "default": "/apps/eric",
+      "info": "Must match the App Proxy subpath configured for this Shopify app."
+    },
+    {
+      "type": "text",
+      "id": "tenant_api_base",
+      "label": "Tenant API base URL",
+      "info": "Public HTTPS URL. Do not enter credentials or private network addresses."
+    },
+    {
+      "type": "text",
+      "id": "account_endpoint",
+      "label": "Account endpoint URL",
+      "info": "Public HTTPS endpoint that returns the signed-in ERiC account."
+    },
+    {
+      "type": "text",
+      "id": "detection_api_base",
+      "label": "Compliance API base URL",
+      "info": "Public HTTPS base URL for compliance checks and history."
+    },
+    {
+      "type": "text",
+      "id": "logout_endpoint",
+      "label": "Session logout endpoint URL",
+      "info": "Public HTTPS endpoint used to revoke the ERiC session."
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_theme_chrome",
+      "label": "Use ERiC as the complete homepage",
+      "default": true
+    }
+  ]
+}
+{% endschema %}

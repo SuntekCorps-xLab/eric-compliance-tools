@@ -1,0 +1,7 @@
+coverage/
+dist/
+node_modules/
+playwright-report/
+test-results/
+extensions/eric-storefront/assets/
+package-lock.json

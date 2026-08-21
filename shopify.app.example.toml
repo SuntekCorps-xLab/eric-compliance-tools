@@ -1,0 +1,26 @@
+# Copy this file to shopify.app.toml and replace every placeholder.
+# Never add Shopify client secrets or Admin API tokens to this file.
+client_id = "YOUR_SHOPIFY_APP_CLIENT_ID"
+name = "ERiC Compliance Tools"
+application_url = "https://YOUR-STORE.myshopify.com"
+embedded = false
+
+[webhooks]
+api_version = "2026-07"
+
+[[webhooks.subscriptions]]
+topics = ["orders/paid", "refunds/create"]
+uri = "https://api.example.com/shopify/webhooks"
+
+[access_scopes]
+scopes = "write_app_proxy,read_orders,read_customers,read_draft_orders,write_draft_orders"
+optional_scopes = []
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = []
+
+[app_proxy]
+url = "https://api.example.com/shopify/proxy"
+prefix = "apps"
+subpath = "eric"
