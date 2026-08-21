@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file. The project
 - Added GitHub Actions, CodeQL, Dependabot, contribution guidance, security reporting, and release documentation.
 - Aligned the public README and repository guidance with the SuntekCorps xLab Shopify open-source repository conventions.
 - Added the browser-facing API contract, trademark policy, and least-privilege Shopify configuration example.
+- Split screening evidence components from the workspace controller and added a complete storefront contract journey test.
+- Pinned GitHub Actions and added Dependency Review, OpenSSF Scorecard, and release SBOM workflows.
 
 ## [1.0.0] - 2026-08-21
 

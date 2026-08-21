@@ -12,7 +12,7 @@ Open-source storefront components for running ERiC product-compliance checks fro
 - Design patent, utility patent, graphic trademark, text trademark, safer-wording, copyright, restricted-product, and marketplace-policy workflows
 - Server-backed point balances, checkout handoff, screening history, evidence review, and private policy terms
 - Responsive desktop and mobile layouts with self-hosted font assets
-- Local mock preview, unit and integration tests, Playwright browser tests, CI, CodeQL, and Dependabot
+- Local mock preview, contract and browser tests, CI, CodeQL, Dependency Review, OpenSSF Scorecard, release SBOMs, and Dependabot
 
 ## Security boundary
 

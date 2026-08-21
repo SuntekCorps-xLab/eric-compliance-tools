@@ -73,6 +73,7 @@ Each release should include:
 - semantic version and source commit;
 - user-visible changes;
 - successful CI and dependency-audit links;
+- the generated SPDX SBOM and OpenSSF Scorecard evidence;
 - Shopify app version ID;
 - configured store and theme owner;
 - smoke-test evidence;
