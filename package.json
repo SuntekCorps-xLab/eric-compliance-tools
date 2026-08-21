@@ -1,0 +1,77 @@
+{
+  "name": "eric-compliance-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Open-source Shopify storefront frontend for ERiC product-compliance screening.",
+  "license": "Apache-2.0",
+  "author": "SuntekCorps xLab",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SuntekCorps-xLab/eric-compliance-tools.git"
+  },
+  "homepage": "https://github.com/SuntekCorps-xLab/eric-compliance-tools#readme",
+  "bugs": {
+    "url": "https://github.com/SuntekCorps-xLab/eric-compliance-tools/issues"
+  },
+  "keywords": [
+    "shopify",
+    "theme-app-extension",
+    "product-compliance",
+    "react",
+    "typescript"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0 <25"
+  },
+  "packageManager": "npm@11.13.0",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4173",
+    "build": "tsc -b && vite build",
+    "build:storefront": "tsc -b && node scripts/build-storefront.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "typecheck": "tsc -b --pretty false",
+    "lint": "eslint . --max-warnings 0",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "check": "npm run format:check && npm run typecheck && npm run lint && npm test && npm run build && npm run build:storefront"
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@fontsource-variable/manrope": "^5.3.0",
+    "jsencrypt": "^3.3.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router": "^8.3.0",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.3",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.10",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.9.0",
+    "jsdom": "^29.0.0",
+    "postcss": "^8.5.26",
+    "postcss-prefix-selector": "^2.1.1",
+    "prettier": "^3.9.6",
+    "sharp": "^0.35.3",
+    "typescript": "~6.0.0",
+    "typescript-eslint": "^8.66.0",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  }
+}

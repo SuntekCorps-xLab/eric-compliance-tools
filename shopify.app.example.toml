@@ -1,0 +1,28 @@
+# Copy this file to shopify.app.toml and replace every placeholder.
+# Never commit a Shopify app secret or Admin API access token.
+
+client_id = "YOUR_SHOPIFY_APP_CLIENT_ID"
+name = "ERiC Compliance Tools"
+application_url = "https://your-app.example.com"
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = false
+
+[webhooks]
+api_version = "2026-07"
+
+[access_scopes]
+# This repository is a storefront client. Add only scopes that your separately
+# deployed backend demonstrably needs.
+scopes = ""
+optional_scopes = []
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = []
+
+[app_proxy]
+url = "https://your-app.example.com/shopify/proxy"
+prefix = "apps"
+subpath = "eric"
