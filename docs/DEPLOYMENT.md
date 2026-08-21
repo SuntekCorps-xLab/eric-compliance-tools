@@ -5,7 +5,7 @@ This guide covers the Shopify frontend only. Backend deployment, database migrat
 ## Before release
 
 1. Confirm the target Shopify app and store.
-2. Confirm that backend API endpoints are public over HTTPS and that CORS permits the storefront origin where cross-origin calls are required.
+2. Confirm that backend API endpoints implement [the storefront contract](API_CONTRACT.md), are public over HTTPS, and permit only intended storefront origins where cross-origin calls are required.
 3. Confirm App Proxy signature verification, store allowlists, timestamp tolerance, and path configuration on the backend.
 4. Confirm that webhook secrets and Admin API credentials are stored only in the backend secret manager.
 5. Run:

@@ -2,6 +2,8 @@
 
 ERiC Compliance Tools is a frontend delivery package. It renders React inside a Shopify Theme App Extension and communicates only with public HTTPS endpoints configured by the merchant or app operator.
 
+The browser-facing methods, routes, envelopes, and required server invariants are defined in [API_CONTRACT.md](API_CONTRACT.md).
+
 ## Runtime components
 
 | Component               | Responsibility                                                                                                           |

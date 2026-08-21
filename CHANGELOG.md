@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file. The project
 - Prepared the Shopify storefront frontend for a standalone open-source repository.
 - Replaced environment-specific Shopify and API configuration with safe examples and Theme Editor settings.
 - Added GitHub Actions, CodeQL, Dependabot, contribution guidance, security reporting, and release documentation.
+- Aligned the public README and repository guidance with the SuntekCorps xLab Shopify open-source repository conventions.
+- Added the browser-facing API contract, trademark policy, and least-privilege Shopify configuration example.
 
 ## [1.0.0] - 2026-08-21
 

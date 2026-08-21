@@ -14,6 +14,8 @@ npm run dev
 
 Use Node.js 22 through 24 and npm 11. Do not add real app IDs, store domains, credentials, customer data, or internal-only endpoints to tests, fixtures, documentation, or generated assets.
 
+Backend-facing changes must keep [the public storefront contract](docs/API_CONTRACT.md) current. Browser checks must never replace server-side authentication, tenant ownership, point accounting, payment verification, or compliance authorization.
+
 ## Branches and commits
 
 - Branch from `main`.
@@ -53,4 +55,4 @@ Follow [SECURITY.md](SECURITY.md). Never disclose a suspected vulnerability in a
 
 ## License
 
-By submitting a contribution, you agree that it is licensed under the Apache License 2.0.
+By submitting a contribution, you agree that it is licensed under the Apache License 2.0. The license does not grant trademark rights; see [TRADEMARKS.md](TRADEMARKS.md).

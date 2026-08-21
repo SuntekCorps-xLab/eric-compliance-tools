@@ -11,7 +11,7 @@ Security fixes are applied to the latest release on the `main` branch. Before a 
 
 ## Reporting a vulnerability
 
-Do not open a public issue for a suspected vulnerability.
+Do not open a public issue for a suspected vulnerability, leaked credential, customer-data exposure, tenant-isolation failure, point-ledger manipulation, payment-verification bypass, or Shopify App Proxy signature failure.
 
 Use GitHub's **Report a vulnerability** option on the repository Security tab to create a private security advisory. Include:
 
@@ -30,6 +30,8 @@ Maintainers will acknowledge a complete report within five business days, assess
 This repository is an untrusted browser client. It must not contain Shopify client secrets, Admin API tokens, webhook secrets, private keys, passwords, fixed access tokens, customer exports, or production logs.
 
 Backend integrations are responsible for authentication, authorization, Shopify signature verification, tenant isolation, rate limits, point accounting, checkout settlement, webhook idempotency, and sensitive-log redaction. A frontend check is never a substitute for backend enforcement.
+
+The public integration requirements are documented in [docs/API_CONTRACT.md](docs/API_CONTRACT.md). Unknown identity, permission, price, payment, guest, or task state must fail closed.
 
 ## Safe testing
 
