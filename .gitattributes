@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+*.jpg binary
+*.mp4 binary
+*.png binary
+*.webp binary
+*.woff2 binary
+
+extensions/eric-storefront/assets/eric-storefront.css linguist-generated=true
+extensions/eric-storefront/assets/eric-storefront.js linguist-generated=true
