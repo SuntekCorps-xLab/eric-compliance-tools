@@ -79,9 +79,12 @@ const storefrontMediaPlugin = {
       }
 
       const outputName = `eric-${basename(args.path, extname(args.path))}.jpg`;
+      // Optional MozJPEG optimizations produce different bytes on macOS arm64
+      // and Linux x64, even with identical codec versions. Use baseline defaults
+      // so committed assets remain reproducible across both environments.
       await sharp(args.path)
         .flatten({ background: '#ffffff' })
-        .jpeg({ quality: 88, mozjpeg: true })
+        .jpeg({ quality: 88 })
         .toFile(resolve(assetsDirectory, outputName));
       return {
         contents: `const script = document.currentScript; const base = script instanceof HTMLScriptElement ? script.src : document.baseURI; export default new URL(${JSON.stringify(outputName)}, base).href;`,

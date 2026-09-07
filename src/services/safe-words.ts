@@ -1,4 +1,10 @@
-import { ericWebApiBase, ericWebHeaders, readEricEnvelope, type EricWebAuth } from './eric-api';
+import {
+  ericWebApiBase,
+  ericWebHeaders,
+  numericWorkspaceId,
+  readEricEnvelope,
+  type EricWebAuth,
+} from './eric-api';
 
 export interface SafeWordSuggestion {
   source: string;
@@ -25,12 +31,13 @@ export async function getSafeWordSuggestions(
   auth: EricWebAuth,
   signal?: AbortSignal,
 ): Promise<SafeWordSuggestion[]> {
+  const requestWorkspaceId = numericWorkspaceId(workspaceId);
   const trademarks = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
   const response = await fetch(`${ericWebApiBase()}/v4/trademark/safe-words`, {
     method: 'POST',
     credentials: 'omit',
     headers: ericWebHeaders(auth),
-    body: JSON.stringify({ work_space_id: Number(workspaceId), trademark: trademarks }),
+    body: JSON.stringify({ work_space_id: requestWorkspaceId, trademark: trademarks }),
     signal,
   });
   const payload = await readEricEnvelope<unknown>(

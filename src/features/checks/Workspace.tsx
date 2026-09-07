@@ -25,6 +25,7 @@ import {
 import type { LiveActivity } from '../../domain/live-workspace';
 import {
   EricDetectionError,
+  DetectionPollingTimeoutError,
   getDetectionResult,
   isAsyncDetectionCode,
   isLiveDetectionCode,
@@ -731,7 +732,7 @@ export function Workspace({
         if (error instanceof DOMException && error.name === 'AbortError') return;
         const message =
           error instanceof Error ? error.message : 'ERiC could not restore this workspace.';
-        const remainsRunning = message.includes('still running');
+        const remainsRunning = error instanceof DetectionPollingTimeoutError;
         setProgress(`${remainsRunning ? 'RUNNING' : 'FAILED'} · ${message}`);
         setProgressMode(remainsRunning ? 'processing' : 'error');
         if (!remainsRunning) {
@@ -757,6 +758,12 @@ export function Workspace({
   }, [liveActivity, liveMode, liveResult, recoverLiveActivity, resultError]);
 
   async function runLiveCheck(form: HTMLFormElement) {
+    if (liveActivity?.status === 'RUNNING') {
+      setResultPanelStarted(true);
+      setResultPanelOpen(true);
+      await recoverLiveActivity(liveActivity);
+      return;
+    }
     if (!liveCode) {
       setProgress('NOT AVAILABLE · Select a connected live check');
       setProgressMode('error');
@@ -912,9 +919,12 @@ export function Workspace({
       if (error instanceof DOMException && error.name === 'AbortError') return;
       const message =
         error instanceof Error ? error.message : 'ERiC could not complete the detection request.';
-      setProgress(`FAILED · ${message}`);
-      setProgressMode('error');
-      setLiveActivity((current) => (current ? { ...current, status: 'FAILED' } : current));
+      const remainsRunning = error instanceof DetectionPollingTimeoutError;
+      setProgress(`${remainsRunning ? 'RUNNING' : 'FAILED'} · ${message}`);
+      setProgressMode(remainsRunning ? 'processing' : 'error');
+      if (!remainsRunning) {
+        setLiveActivity((current) => (current ? { ...current, status: 'FAILED' } : current));
+      }
       if (error instanceof EricDetectionError && error.invalidSession) resetSession();
     } finally {
       if (requestController.current === controller) requestController.current = null;
@@ -1832,6 +1842,7 @@ export function Workspace({
                         <button
                           className="button button-primary"
                           type="submit"
+                          formNoValidate={liveMode && liveActivity?.status === 'RUNNING'}
                           disabled={running || unavailableInLive}
                         >
                           {running
@@ -1839,7 +1850,9 @@ export function Workspace({
                               ? 'Running ERiC check…'
                               : 'Running prototype check…'
                             : liveMode
-                              ? 'Run live check →'
+                              ? liveActivity?.status === 'RUNNING'
+                                ? 'Check existing task again →'
+                                : 'Run live check →'
                               : 'Run prototype check →'}
                         </button>
                       </div>

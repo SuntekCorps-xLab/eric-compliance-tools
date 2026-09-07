@@ -25,6 +25,17 @@ export class EricApiError extends Error {
   }
 }
 
+/** Preserve the existing JSON-number contract without silently rounding an ID. */
+export function numericWorkspaceId(workspaceId: string): number {
+  const value = Number(workspaceId);
+  if (!/^\d+$/.test(workspaceId) || !Number.isSafeInteger(value) || value <= 0) {
+    throw new EricApiError(
+      'This workspace ID cannot be sent exactly as a supported JSON integer. The request was not sent.',
+    );
+  }
+  return value;
+}
+
 const invalidSessionCodes = new Set([10, 20, 101, 401, 601, 602, 70004]);
 
 export function ericWebApiBase(): string {
