@@ -103,6 +103,10 @@ All routes below are relative to the configured compliance API base.
 
 The TypeScript request builders and response normalizers under `src/services/` are the executable client-side contract. New backend versions should remain compatible with those types or be released together with a matching frontend version.
 
+Workspace IDs remain strings in client state and status-query parameters. Result and safer-wording POST bodies retain the existing JSON-number representation of `work_space_id`. The client rejects non-positive, non-decimal, or unsafe integer IDs before sending these POST requests; it never silently rounds an ID. Supporting larger IDs in these bodies requires a separately verified backend contract for decimal strings or lossless integer serialization. No backend accepting string IDs is bundled with this repository.
+
+Exhausting the client polling budget does not mean the server task failed. The workspace stays `RUNNING`, its resumable snapshot is retained, and **Check existing task again** polls the same ID without calling `/v5/save-check` again. A server-reported failed status remains a separate terminal outcome.
+
 ## Required invariants
 
 Before creating or returning any task, evidence, history entry, policy term, checkout, or point mutation, the backend must confirm:

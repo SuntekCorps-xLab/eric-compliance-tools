@@ -7,7 +7,7 @@
 Inspect product claims, organize evidence, review policy outcomes, and manage a server-backed screening workflow from a Shopify Online Store 2.0 experience.
 
 [![CI](https://github.com/SuntekCorps-xLab/eric-compliance-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SuntekCorps-xLab/eric-compliance-tools/actions/workflows/ci.yml)
-[![Node.js](https://img.shields.io/badge/Node.js-22--24-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-22.22%2B%20%7C%2024-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=20232A)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Shopify](https://img.shields.io/badge/Shopify-Online%20Store%202.0-95BF47?logo=shopify&logoColor=white)](https://www.shopify.com/)
@@ -74,27 +74,29 @@ Keep Shopify identity, tenant ownership, guest isolation, prices, balances, poli
 ## 🖼️ Product surfaces
 
 The README focuses on the interactive storefront modules below. The extension also ships category icons for design patents, utility patents, graphic trademarks, text trademarks, copyright, policy, points, history, and reports.
+
 ### 🧩 Storefront overview
 
 These animated previews show the ERiC compliance workspace, screening entry point, evidence-oriented workflow, and credit context in one customer-facing surface.
 
 <p align="center">
-  <img src="extensions/eric-storefront/assets/eric-module-overview.gif" alt="Animated ERiC compliance workspace overview" width="100%" />
+  <img src="docs/assets/eric-module-overview.gif" alt="Animated ERiC compliance workspace overview" width="100%" />
 </p>
 
 > This animated product reference shows the intended storefront experience. Live screening results, evidence, balances, and policy decisions still require compatible server-side services.
+
 ## ✨ Capabilities
 
-| Icon | Surface | What it covers | Authority |
-|:---:|---|---|---|
-| 🏠 | **Homepage App Embed** | ERiC landing surface, product explanation, entry points, and approved media | Theme presentation |
-| 🧰 | **Workspace App Block** | Dedicated compliance workspace on a Shopify page such as `/pages/workspace` | Theme presentation + backend contract |
-| 👤 | **Shopify customer entry** | Customer Account sign-in through a signed App Proxy session | Server-issued identity |
-| 🧪 | **Guest demo** | Isolated, resumable demo sessions when enabled by the backend | Server-enforced guest policy |
-| 🧾 | **Screening inputs** | Product images, listing text, markets, and policy options | Server validates task creation |
-| 🔍 | **Evidence review** | Task polling, evidence rendering, screening history, and safe error states | Compliance API |
-| 💳 | **Credits and checkout** | Balance display, credit packs, checkout handoff, refill, expiry, and settlement boundaries | Server-owned ledger |
-| 🛡️ | **Policy workflows** | Patent, trademark, copyright, safer wording, restricted-product, and marketplace-policy flows | Private policy service |
+| Icon | Surface                    | What it covers                                                                                | Authority                             |
+| :--: | -------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------- |
+|  🏠  | **Homepage App Embed**     | ERiC landing surface, product explanation, entry points, and approved media                   | Theme presentation                    |
+|  🧰  | **Workspace App Block**    | Dedicated compliance workspace on a Shopify page such as `/pages/workspace`                   | Theme presentation + backend contract |
+|  👤  | **Shopify customer entry** | Customer Account sign-in through a signed App Proxy session                                   | Server-issued identity                |
+|  🧪  | **Guest demo**             | Isolated, resumable demo sessions when enabled by the backend                                 | Server-enforced guest policy          |
+|  🧾  | **Screening inputs**       | Product images, listing text, markets, and policy options                                     | Server validates task creation        |
+|  🔍  | **Evidence review**        | Task polling, evidence rendering, screening history, and safe error states                    | Compliance API                        |
+|  💳  | **Credits and checkout**   | Balance display, credit packs, checkout handoff, refill, expiry, and settlement boundaries    | Server-owned ledger                   |
+|  🛡️  | **Policy workflows**       | Patent, trademark, copyright, safer wording, restricted-product, and marketplace-policy flows | Private policy service                |
 
 ## 🏗️ Architecture
 
@@ -153,8 +155,15 @@ shopify.app.example.toml          Safe Shopify app configuration template
 
 ### Prerequisites
 
-- Node.js `22`, `23`, or `24`
+For the local mock preview:
+
+- Node.js `22.22.0` or newer within major 22, or Node.js `24`
 - npm `11`
+
+The committed `.nvmrc` selects Node 24 (`nvm install && nvm use`). npm enforces the supported Node range through `.npmrc`; Node 23 and Node 25+ are unsupported by this project’s locked toolchain.
+
+For Shopify integration, also provide:
+
 - Shopify CLI `3.85` or newer
 - Shopify Partner or Dev Dashboard app
 - Shopify development store
@@ -170,10 +179,18 @@ cp .env.example .env.local
 npm run check
 ```
 
-Install Chromium once for browser tests:
+Launch the local interactive preview:
 
 ```bash
-npx playwright install chromium
+npm run dev
+```
+
+Open [http://127.0.0.1:4173](http://127.0.0.1:4173). The default mock preview needs no Shopify store, ERiC token, or production backend and never deducts real points.
+
+Install Chromium and WebKit once for desktop and iPhone browser tests:
+
+```bash
+npx playwright install chromium webkit
 npm run test:e2e
 ```
 
@@ -220,27 +237,27 @@ Theme settings are public presentation configuration. They must never contain cr
 
 The storefront uses three public integration surfaces:
 
-| Surface | Responsibility | Reference |
-|---|---|---|
-| 🔐 Same-origin Shopify App Proxy | Customer and guest session exchange | Signed request and identity rules in [API contract](docs/API_CONTRACT.md) |
-| 🧠 Tenant API | Account, credit-pack, checkout, purchase, refill, and logout operations | Backend-owned tenant and ledger authority |
-| 🔍 Compliance API | Uploads, screening tasks, status, evidence, history, safer wording, and policy terms | Backend-owned detection and policy authority |
+| Surface                          | Responsibility                                                                       | Reference                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| 🔐 Same-origin Shopify App Proxy | Customer and guest session exchange                                                  | Signed request and identity rules in [API contract](docs/API_CONTRACT.md) |
+| 🧠 Tenant API                    | Account, credit-pack, checkout, purchase, refill, and logout operations              | Backend-owned tenant and ledger authority                                 |
+| 🔍 Compliance API                | Uploads, screening tasks, status, evidence, history, safer wording, and policy terms | Backend-owned detection and policy authority                              |
 
 Methods, routes, headers, response envelopes, identity rules, and fail-closed requirements are documented in [docs/API_CONTRACT.md](docs/API_CONTRACT.md).
 
 ## 🧪 Verification
 
-| Check | Command | Coverage |
-|---|---|---|
-| 🧹 Formatting | `npm run format:check` | Repository formatting consistency |
-| 🧬 Type safety | `npm run typecheck` | TypeScript project references |
-| 🔎 Lint | `npm run lint` | ESLint with zero warnings allowed |
-| 🧪 Unit and integration | `npm test` | Domain, service, store, auth, policy, and contract behavior |
-| 📊 Coverage | `npm run test:coverage` | Coverage thresholds and quality evidence |
-| 🏗️ App build | `npm run build` | Standalone local preview |
-| 🧰 Storefront bundle | `npm run build:storefront` | Generated Shopify extension assets |
-| 🌐 Browser flows | `npm run test:e2e` | Desktop, mobile, prototype, and guest flows |
-| ✅ Release gate | `npm run check` | Formatting, types, lint, tests, and builds |
+| Check                   | Command                    | Coverage                                                    |
+| ----------------------- | -------------------------- | ----------------------------------------------------------- |
+| 🧹 Formatting           | `npm run format:check`     | Repository formatting consistency                           |
+| 🧬 Type safety          | `npm run typecheck`        | TypeScript project references                               |
+| 🔎 Lint                 | `npm run lint`             | ESLint with zero warnings allowed                           |
+| 🧪 Unit and integration | `npm test`                 | Domain, service, store, auth, policy, and contract behavior |
+| 📊 Coverage             | `npm run test:coverage`    | Coverage thresholds and quality evidence                    |
+| 🏗️ App build            | `npm run build`            | Standalone local preview                                    |
+| 🧰 Storefront bundle    | `npm run build:storefront` | Generated Shopify extension assets                          |
+| 🌐 Browser flows        | `npm run test:e2e`         | Desktop, mobile, prototype, and guest flows                 |
+| ✅ Release gate         | `npm run check`            | Formatting, types, lint, tests, and builds                  |
 
 Generated files under `extensions/eric-storefront/assets/` must be rebuilt and committed whenever storefront source, styles, fonts, or media change. Do not edit generated assets directly.
 
