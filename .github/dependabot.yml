@@ -8,6 +8,11 @@ updates:
       time: '03:00'
       timezone: Asia/Shanghai
     open-pull-requests-limit: 10
+    groups:
+      vitest:
+        patterns:
+          - vitest
+          - '@vitest/*'
     labels:
       - dependencies
 
