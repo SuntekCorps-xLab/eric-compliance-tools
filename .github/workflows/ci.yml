@@ -15,6 +15,10 @@ concurrency:
 
 jobs:
   quality:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.22.0', '24']
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -25,7 +29,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: npm
 
       - name: Install dependencies
@@ -50,7 +54,13 @@ jobs:
         run: npm run build:storefront
 
       - name: Verify generated assets are committed
-        run: git diff --exit-code
+        run: |
+          changes=$(git status --porcelain --untracked-files=all -- extensions/eric-storefront/assets)
+          if [ -n "$changes" ]; then
+            echo "Storefront assets differ from the committed build:"
+            echo "$changes"
+            exit 1
+          fi
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
@@ -58,7 +68,7 @@ jobs:
       - name: Upload quality evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: quality-evidence
+          name: quality-evidence-node-${{ matrix.node }}
           path: |
             coverage/
             dist/
@@ -87,8 +97,8 @@ jobs:
       - name: Build Shopify extension assets
         run: npm run build:storefront
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run browser tests
         run: npm run test:e2e
