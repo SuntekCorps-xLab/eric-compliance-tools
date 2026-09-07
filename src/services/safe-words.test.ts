@@ -9,6 +9,18 @@ describe('T002 safer wording contract', () => {
     vi.unstubAllGlobals();
   });
 
+  it.each(['9007199254740993', '', 'NaN', 'Infinity', '-1', '0', '1.5', '1e3'])(
+    'rejects unsupported workspace ID "%s" before sending any request',
+    async (workspaceId) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      await expect(getSafeWordSuggestions(workspaceId, ['ARC'], auth)).rejects.toThrow(
+        'cannot be sent exactly',
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
   it('deduplicates requested terms and normalizes successful and failed suggestions', async () => {
     vi.stubEnv('VITE_DETECTION_API_BASE_URL', 'https://example.test/eric/Eric');
     const fetchMock = vi.fn().mockResolvedValue(

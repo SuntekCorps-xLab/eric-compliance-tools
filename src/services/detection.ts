@@ -4,6 +4,7 @@ import {
   ericWebApiBase,
   ericWebHeaders,
   readEricEnvelope,
+  numericWorkspaceId,
   type EricWebAuth,
 } from './eric-api';
 import {
@@ -32,6 +33,15 @@ const DESIGN_RESULT_QUERY_MODE_HYBRID = 3;
 
 export type DetectionAuth = EricWebAuth;
 export { EricApiError as EricDetectionError };
+
+export class DetectionPollingTimeoutError extends EricApiError {
+  constructor(readonly workspaceId: string) {
+    super(
+      `The ERiC task is still running in workspace ${workspaceId}. Check the existing task again shortly.`,
+    );
+    this.name = 'DetectionPollingTimeoutError';
+  }
+}
 
 export interface DetectionInput {
   code: AsyncDetectionCode;
@@ -625,9 +635,7 @@ export async function waitForDetection(
       });
     }
   }
-  throw new EricApiError(
-    'The ERiC task is still running. Keep the workspace ID and check again shortly; no duplicate task was created.',
-  );
+  throw new DetectionPollingTimeoutError(workspaceId);
 }
 
 export async function getDetectionResult(
@@ -636,6 +644,7 @@ export async function getDetectionResult(
   auth: DetectionAuth,
   signal?: AbortSignal,
 ): Promise<LiveDetectionResult> {
+  const requestWorkspaceId = numericWorkspaceId(workspaceId);
   const isTrademark = code === 'T001';
   const isPolicy = code === 'P002';
   const resultPath = {
@@ -649,7 +658,7 @@ export async function getDetectionResult(
   const requestBody =
     code === 'D001'
       ? {
-          work_space_id: Number(workspaceId),
+          work_space_id: requestWorkspaceId,
           page: 1,
           per_page: 20,
           mode: DESIGN_RESULT_QUERY_MODE_HYBRID,
@@ -658,14 +667,14 @@ export async function getDetectionResult(
       : code === 'L001'
         ? {
             id: '',
-            work_space_id: Number(workspaceId),
+            work_space_id: requestWorkspaceId,
             page: 1,
             per_page: 20,
             trademark: '',
           }
         : isTrademark || isPolicy
-          ? { work_space_id: Number(workspaceId) }
-          : { work_space_id: Number(workspaceId), page: 1, per_page: code === 'C001' ? 20 : 10 };
+          ? { work_space_id: requestWorkspaceId }
+          : { work_space_id: requestWorkspaceId, page: 1, per_page: code === 'C001' ? 20 : 10 };
   const response = await fetch(`${ericWebApiBase()}${resultPath}`, {
     method: 'POST',
     credentials: 'omit',
