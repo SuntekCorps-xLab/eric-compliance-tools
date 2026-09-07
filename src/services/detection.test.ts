@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildDetectionPayload,
+  DetectionPollingTimeoutError,
   getDetectionResult,
+  getDetectionStatus,
   modeForDetection,
   runRestrictedProductDetection,
   submitDetection,
@@ -259,6 +261,72 @@ describe('ERiC live detection contract', () => {
       true,
     );
   });
+
+  it('reports polling exhaustion separately from a server-reported failure', async () => {
+    vi.stubEnv('VITE_DETECTION_API_BASE_URL', 'https://example.test/eric/Eric');
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(Response.json({ code: 200, data: { trademark: 1 } })),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      waitForDetection('9876', 'trademark', auth, { intervalMs: 0, maxAttempts: 2 }),
+    ).rejects.toBeInstanceOf(DetectionPollingTimeoutError);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(Response.json({ code: 200, data: { trademark: 2 } })),
+    );
+    const failure = await waitForDetection('9876', 'trademark', auth).catch(
+      (error: unknown) => error,
+    );
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).not.toBeInstanceOf(DetectionPollingTimeoutError);
+    expect(failure).toHaveProperty('message', expect.stringContaining('could not complete'));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it.each(['9876', '9007199254740993'])(
+    'preserves polling workspace ID %s',
+    async (workspaceId) => {
+      vi.stubEnv('VITE_DETECTION_API_BASE_URL', 'https://example.test/eric/Eric');
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(Response.json({ code: 200, data: { trademark: 1 } }));
+      vi.stubGlobal('fetch', fetchMock);
+      await getDetectionStatus(workspaceId, 'trademark', auth);
+      expect(new URL(String(fetchMock.mock.calls[0]![0])).searchParams.get('work_space_id')).toBe(
+        workspaceId,
+      );
+    },
+  );
+
+  it.each(['D001', 'I001', 'L001', 'T001', 'C001', 'P002'] as const)(
+    'rejects unsafe %s result IDs before sending any request',
+    async (code) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      await expect(getDetectionResult(code, '9007199254740993', auth)).rejects.toThrow(
+        'cannot be sent exactly',
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['9876', '9007199254740991'])(
+    'sends exact supported numeric result ID %s',
+    async (workspaceId) => {
+      vi.stubEnv('VITE_DETECTION_API_BASE_URL', 'https://example.test/eric/Eric');
+      const fetchMock = vi.fn().mockResolvedValue(Response.json({ code: 200, data: {} }));
+      vi.stubGlobal('fetch', fetchMock);
+      await getDetectionResult('T001', workspaceId, auth);
+      const request = fetchMock.mock.calls[0]![1] as RequestInit;
+      const body = JSON.parse(request.body as string) as { work_space_id: number };
+      expect(String(body.work_space_id)).toBe(workspaceId);
+    },
+  );
 
   it('loads and normalizes the completed T001 evidence without resubmitting', async () => {
     vi.stubEnv('VITE_DETECTION_API_BASE_URL', 'https://example.test/eric/Eric');

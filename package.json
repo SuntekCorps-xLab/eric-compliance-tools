@@ -22,7 +22,7 @@
   ],
   "type": "module",
   "engines": {
-    "node": ">=22.0.0 <25"
+    "node": "^22.22.0 || ^24.0.0"
   },
   "packageManager": "npm@11.13.0",
   "scripts": {

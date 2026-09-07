@@ -118,54 +118,64 @@ function guestSessionResponse(isFirstSession = true) {
 
 describe('live Shopify auth contract', () => {
   beforeEach(() => configurePasswordLoginEncryption((password) => `rsa-encrypted:${password}`));
-  afterEach(() => vi.unstubAllGlobals());
-
-  it('maps display_name and loads the authoritative ERiC balance and permissions', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(exchangeResponse())
-      .mockResolvedValueOnce(accountResponse());
-    vi.stubGlobal('fetch', fetchMock);
-
-    const result = await liveAuthApi().resolveShopifyCallback(
-      'shopify_auth=success&ticket=one-time-ticket',
-    );
-
-    expect(result).toMatchObject({
-      user: {
-        id: '42',
-        displayName: 'Alex Morgan',
-        shopDomain: 'shop.example.com',
-        shopId: '123456789',
-        tenantId: 5164,
-      },
-      account: {
-        tenantId: 5164,
-        tenantName: 'Northstar Commerce',
-        pointMargin: 200,
-        webApiEnabled: true,
-        externalApiTokenEnabled: false,
-      },
-      balance: 200,
-      welcomeCreditsGranted: 200,
-      welcomeCreditsExpireDays: 7,
-      sessionToken: 'eric-jwt',
-    });
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      '/auth/shopify/exchange',
-      expect.objectContaining({
-        method: 'POST',
-        credentials: 'omit',
-        body: JSON.stringify({ ticket: 'one-time-ticket' }),
-      }),
-    );
-    const accountUrl = String(fetchMock.mock.calls[1]?.[0]);
-    const accountRequest = fetchMock.mock.calls[1]?.[1] as RequestInit | undefined;
-    expect(accountUrl).toContain('/account/account?tenant_id=5164');
-    expect(accountRequest?.method).toBe('GET');
-    expect(new Headers(accountRequest?.headers).get('Authorization')).toBe('Bearer eric-jwt');
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
+
+  it.each(['', 'https://tenant-api.example.com'])(
+    'maps display_name and loads the authoritative balance with API base "%s"',
+    async (apiBase) => {
+      vi.resetModules();
+      vi.stubEnv('VITE_API_BASE_URL', apiBase);
+      vi.stubEnv('VITE_SHOPIFY_EXCHANGE_PATH', '/auth/shopify/exchange');
+      const { liveAuthApi: configuredAuthApi } = await import('./auth');
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(exchangeResponse())
+        .mockResolvedValueOnce(accountResponse());
+      vi.stubGlobal('fetch', fetchMock);
+
+      const result = await configuredAuthApi().resolveShopifyCallback(
+        'shopify_auth=success&ticket=one-time-ticket',
+      );
+
+      expect(result).toMatchObject({
+        user: {
+          id: '42',
+          displayName: 'Alex Morgan',
+          shopDomain: 'shop.example.com',
+          shopId: '123456789',
+          tenantId: 5164,
+        },
+        account: {
+          tenantId: 5164,
+          tenantName: 'Northstar Commerce',
+          pointMargin: 200,
+          webApiEnabled: true,
+          externalApiTokenEnabled: false,
+        },
+        balance: 200,
+        welcomeCreditsGranted: 200,
+        welcomeCreditsExpireDays: 7,
+        sessionToken: 'eric-jwt',
+      });
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
+        `${apiBase}/auth/shopify/exchange`,
+        expect.objectContaining({
+          method: 'POST',
+          credentials: 'omit',
+          body: JSON.stringify({ ticket: 'one-time-ticket' }),
+        }),
+      );
+      const accountUrl = String(fetchMock.mock.calls[1]?.[0]);
+      const accountRequest = fetchMock.mock.calls[1]?.[1] as RequestInit | undefined;
+      expect(accountUrl).toContain('/account/account?tenant_id=5164');
+      expect(accountRequest?.method).toBe('GET');
+      expect(new Headers(accountRequest?.headers).get('Authorization')).toBe('Bearer eric-jwt');
+    },
+  );
 
   it('keeps the real balance on repeat login while suppressing the one-time gift message', async () => {
     const fetchMock = vi

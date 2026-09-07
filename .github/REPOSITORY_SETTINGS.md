@@ -4,7 +4,7 @@ Repository administrators should configure these controls after the GitHub repos
 
 - set `main` as the default branch;
 - require a pull request and at least one approval from an ERiC maintainer;
-- require the `CI / quality`, `CI / browser`, `CodeQL`, and `Dependency Review` checks;
+- require the `CI / quality (22.22.0)`, `CI / quality (24)`, `CI / browser`, `CodeQL`, and `Dependency Review` checks;
 - dismiss stale approvals after new commits;
 - require conversation resolution;
 - block force pushes and branch deletion;
