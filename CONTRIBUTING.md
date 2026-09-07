@@ -12,7 +12,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Use Node.js 22 through 24 and npm 11. Do not add real app IDs, store domains, credentials, customer data, or internal-only endpoints to tests, fixtures, documentation, or generated assets.
+Use Node.js 22.22.0+ within major 22 or Node.js 24, and npm 11. Run `nvm install && nvm use` to select the default Node 24 runtime. npm rejects unsupported Node versions through `.npmrc`. Do not add real app IDs, store domains, credentials, customer data, or internal-only endpoints to tests, fixtures, documentation, or generated assets.
 
 Backend-facing changes must keep [the public storefront contract](docs/API_CONTRACT.md) current. Browser checks must never replace server-side authentication, tenant ownership, point accounting, payment verification, or compliance authorization.
 
@@ -28,7 +28,7 @@ Backend-facing changes must keep [the public storefront contract](docs/API_CONTR
 ```bash
 npm ci
 npm run check
-npx playwright install chromium
+npx playwright install chromium webkit
 npm run test:e2e
 npm audit --audit-level=high
 git diff --check

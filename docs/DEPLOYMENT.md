@@ -13,7 +13,7 @@ This guide covers the Shopify frontend only. Backend deployment, database migrat
    ```bash
    npm ci
    npm run check
-   npx playwright install chromium
+   npx playwright install chromium webkit
    npm run test:e2e
    npm audit --audit-level=high
    shopify app build --no-color
