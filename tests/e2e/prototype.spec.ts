@@ -54,6 +54,8 @@ test('authorizes a mock Shopify account and grants 200 test credits', async ({ p
 
   await accountMenu.click();
   await page.getByRole('menuitem', { name: /Sign out/i }).click();
+  // Local session state clears before the sign-out navigation finishes.
+  await page.waitForURL((url) => url.pathname === '/', { waitUntil: 'load' });
   await expect(
     page.getByRole('heading', { name: 'Compliance workspace', exact: true }),
   ).not.toBeVisible();
