@@ -23,8 +23,27 @@ import {
   type SessionAccount,
 } from '../services/auth';
 
-type SessionStatus = 'anonymous' | 'ready' | 'refreshing' | 'error';
+type SessionStatus = 'anonymous' | 'ready' | 'refreshing' | 'error' | 'expired';
 const sessionStorageKey = 'eric-shopify-session-v1';
+
+type SessionOwner = Pick<
+  AuthenticatedUser,
+  'id' | 'tenantId' | 'provider' | 'shopId' | 'shopDomain'
+>;
+interface PendingSession {
+  owner: SessionOwner;
+  workspace: LiveWorkspaceSnapshot;
+}
+
+function sameOwner(a: SessionOwner | null | undefined, b: SessionOwner) {
+  return (
+    a?.id === b.id &&
+    a.tenantId === b.tenantId &&
+    a.provider === b.provider &&
+    a.shopId === b.shopId &&
+    a.shopDomain === b.shopDomain
+  );
+}
 
 interface AppStore extends PrototypeState {
   user: AuthenticatedUser | null;
@@ -39,6 +58,8 @@ interface AppStore extends PrototypeState {
   liveWorkspace: LiveWorkspaceSnapshot | null;
   authenticate: (result: AuthSessionResult) => void;
   resetSession: () => void;
+  expireSession: () => void;
+  pendingSession: PendingSession | null;
   refreshSession: () => Promise<void>;
   signOut: () => Promise<void>;
   buyCredits: (packId: CreditPackId) => void;
@@ -58,6 +79,7 @@ function anonymousSession() {
     sessionToken: null,
     sessionStatus: 'anonymous' as const,
     sessionError: '',
+    pendingSession: null,
     demoSession: null,
     report: null,
     liveWorkspace: null,
@@ -80,15 +102,40 @@ export const useAppStore = create<AppStore>()(
           sessionStatus: 'ready',
           sessionError: '',
           demoSession: result.demoSession ?? null,
-          liveWorkspace:
-            state.user?.id === result.user.id && state.user.tenantId === result.user.tenantId
-              ? state.liveWorkspace
+          liveWorkspace: sameOwner(state.user, result.user)
+            ? state.liveWorkspace
+            : sameOwner(state.pendingSession?.owner, result.user)
+              ? state.pendingSession!.workspace
               : null,
+          pendingSession: null,
         }));
       },
       resetSession() {
         set(anonymousSession());
         sessionStorage.removeItem(sessionStorageKey);
+      },
+      expireSession() {
+        const { user, liveWorkspace, pendingSession } = get();
+        const activity = liveWorkspace?.activity;
+        const pending =
+          user && liveWorkspace && activity?.status === 'RUNNING'
+            ? {
+                owner: {
+                  id: user.id,
+                  tenantId: user.tenantId,
+                  provider: user.provider,
+                  shopId: user.shopId,
+                  shopDomain: user.shopDomain,
+                },
+                workspace: { activity, result: null, savedAt: liveWorkspace.savedAt },
+              }
+            : pendingSession;
+        set({
+          ...anonymousSession(),
+          pendingSession: pending,
+          sessionStatus: 'expired',
+          sessionError: 'Your ERiC session expired. Reconnect to continue.',
+        });
       },
       async refreshSession() {
         const { sessionToken, user } = get();
@@ -96,6 +143,7 @@ export const useAppStore = create<AppStore>()(
         set({ sessionStatus: 'refreshing', sessionError: '' });
         try {
           const account = await authApi.getAccount(sessionToken, user.tenantId, user.id);
+          if (get().sessionToken !== sessionToken || get().user !== user) return;
           set({
             account,
             balance: account.pointMargin,
@@ -104,9 +152,9 @@ export const useAppStore = create<AppStore>()(
             sessionError: '',
           });
         } catch (error) {
+          if (get().sessionToken !== sessionToken || get().user !== user) return;
           if (error instanceof EricSessionError && error.invalidSession) {
-            set(anonymousSession());
-            sessionStorage.removeItem(sessionStorageKey);
+            get().expireSession();
             return;
           }
           set({
@@ -120,11 +168,11 @@ export const useAppStore = create<AppStore>()(
       },
       async signOut() {
         const { sessionToken: token, user } = get();
+        clearShopifyGuestCredentials();
         set(anonymousSession());
         sessionStorage.removeItem(sessionStorageKey);
         if (!token) return;
         if (user?.provider === 'shopify-guest') {
-          clearShopifyGuestCredentials();
           try {
             await revokeShopifyGuestSession(token, user);
           } catch (error) {
@@ -180,6 +228,7 @@ export const useAppStore = create<AppStore>()(
         sessionToken: state.sessionToken,
         sessionStatus: state.sessionStatus,
         demoSession: state.demoSession,
+        pendingSession: state.pendingSession,
         liveWorkspace: state.liveWorkspace,
       }),
     },

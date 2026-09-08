@@ -281,7 +281,7 @@ async function readEnvelope<T>(response: Response): Promise<EricEnvelope<T>> {
   try {
     payload = (await response.json()) as EricEnvelope<T>;
   } catch {
-    throw new EricSessionError('ERiC returned an unreadable response.');
+    throw new EricSessionError('ERiC returned an unreadable response.', response.status === 401);
   }
   if (!response.ok) {
     const invalidSession =
@@ -314,11 +314,13 @@ async function getAccountFromEndpoint(
   sessionToken: string,
   tenantId: number,
   userId?: string,
+  signal?: AbortSignal,
 ): Promise<SessionAccount> {
   const url = new URL(endpoint, window.location.origin);
   url.searchParams.set('tenant_id', String(tenantId));
   const response = await fetch(url.toString(), {
     method: 'GET',
+    signal,
     credentials: 'omit',
     headers: {
       Accept: 'application/json',
@@ -577,11 +579,66 @@ export function liveAuthApi(): AuthApi {
   };
 }
 
-export async function createShopifyStorefrontSession(
+async function withSessionDeadline<T>(
+  work: (signal: AbortSignal) => Promise<T>,
+  parent?: AbortSignal,
+): Promise<T> {
+  const controller = new AbortController();
+  const cancel = () => controller.abort(parent?.reason);
+  if (parent?.aborted) cancel();
+  else parent?.addEventListener('abort', cancel, { once: true });
+  const timer = window.setTimeout(
+    () => controller.abort(new DOMException('Session connection timed out.', 'TimeoutError')),
+    15_000,
+  );
+  try {
+    controller.signal.throwIfAborted();
+    const result = await work(controller.signal);
+    controller.signal.throwIfAborted();
+    return result;
+  } catch (error) {
+    if (
+      controller.signal.aborted &&
+      controller.signal.reason instanceof DOMException &&
+      controller.signal.reason.name === 'TimeoutError'
+    ) {
+      throw new EricSessionError('The session connection timed out. Please try again.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+    parent?.removeEventListener('abort', cancel);
+  }
+}
+
+export function createShopifyStorefrontSession(
   context: ShopifyStorefrontContext,
+  signal?: AbortSignal,
+): Promise<AuthSessionResult> {
+  return withSessionDeadline(
+    (requestSignal) => exchangeStorefrontSession(context, requestSignal),
+    signal,
+  );
+}
+
+export function createShopifyGuestSession(
+  context: ShopifyStorefrontContext,
+  createIfMissing = false,
+  signal?: AbortSignal,
+): Promise<AuthSessionResult | null> {
+  return withSessionDeadline(
+    (requestSignal) => exchangeGuestSession(context, createIfMissing, requestSignal),
+    signal,
+  );
+}
+
+async function exchangeStorefrontSession(
+  context: ShopifyStorefrontContext,
+  signal: AbortSignal,
 ): Promise<AuthSessionResult> {
   const response = await fetch(`${context.proxyBase}/session`, {
     method: 'POST',
+    signal,
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
   });
@@ -601,19 +658,22 @@ export async function createShopifyStorefrontSession(
     payload.token,
     tenantId,
     userId,
+    signal,
   );
   return mapAuthenticatedSession(payload, account);
 }
 
-export async function createShopifyGuestSession(
+async function exchangeGuestSession(
   context: ShopifyStorefrontContext,
-  createIfMissing = false,
+  createIfMissing: boolean,
+  signal: AbortSignal,
 ): Promise<AuthSessionResult | null> {
   const stored = readGuestCredential();
   if (!stored && !createIfMissing) return null;
 
   const response = await fetch(`${context.proxyBase}/demo-session`, {
     method: 'POST',
+    signal,
     credentials: 'same-origin',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -642,6 +702,7 @@ export async function createShopifyGuestSession(
       );
     }
 
+    signal.throwIfAborted();
     saveGuestCredential({
       deviceId: stored?.deviceId || guestDeviceId(),
       resumeToken: demo.resume_token.trim(),
@@ -654,6 +715,7 @@ export async function createShopifyGuestSession(
       payload.token,
       tenantId,
       userId,
+      signal,
     );
     if (demo.is_first_session && account.pointMargin < asNumber(demo.initial_points)) {
       for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -663,6 +725,7 @@ export async function createShopifyGuestSession(
           payload.token,
           tenantId,
           userId,
+          signal,
         );
         if (account.pointMargin >= asNumber(demo.initial_points)) break;
       }

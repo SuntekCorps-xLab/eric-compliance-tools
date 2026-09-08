@@ -57,6 +57,7 @@ describe('Shopify session state', () => {
       sessionStatus: 'anonymous',
       sessionError: '',
       demoSession: null,
+      pendingSession: null,
       report: null,
       liveWorkspace: null,
     });
@@ -152,8 +153,94 @@ describe('Shopify session state', () => {
       user: null,
       account: null,
       sessionToken: null,
+      sessionStatus: 'expired',
+    });
+    expect(sessionStorage.getItem('eric-shopify-session-v1')).not.toContain('eric-jwt');
+  });
+  function pendingTask() {
+    return {
+      activity: {
+        workspaceId: '9876',
+        requestId: 'synthetic',
+        code: 'T001' as const,
+        status: 'RUNNING' as const,
+      },
+      result: null,
+      savedAt: '2026-09-08T00:00:00Z',
+    };
+  }
+
+  it('preserves a guest task only after the same guest identity is authenticated', () => {
+    const session = authenticatedSession();
+    session.user.provider = 'shopify-guest';
+    useAppStore.getState().authenticate(session);
+    useAppStore.getState().setLiveWorkspace(pendingTask());
+    useAppStore.getState().authenticate({ ...session, sessionToken: 'renewed-token' });
+    expect(useAppStore.getState().liveWorkspace?.activity?.workspaceId).toBe('9876');
+  });
+
+  it('expires credentials and restores only the same verified owner pending task', () => {
+    useAppStore.getState().authenticate(authenticatedSession());
+    useAppStore.getState().setLiveWorkspace(pendingTask());
+    useAppStore.getState().expireSession();
+    expect(useAppStore.getState()).toMatchObject({
+      user: null,
+      account: null,
+      sessionToken: null,
+      liveWorkspace: null,
+      sessionStatus: 'expired',
+    });
+    const persisted = sessionStorage.getItem('eric-shopify-session-v1') ?? '';
+    expect(persisted).not.toContain('eric-jwt');
+    expect(persisted).not.toContain('owner@example.com');
+    useAppStore.getState().authenticate(authenticatedSession());
+    expect(useAppStore.getState().liveWorkspace).toEqual(pendingTask());
+    expect(useAppStore.getState().pendingSession).toBeNull();
+  });
+
+  it.each([
+    { id: 'different-user' },
+    { tenantId: 9002 },
+    { provider: 'shopify-guest' as const },
+    { shopId: 'different-shop' },
+    { shopDomain: 'different.example.com' },
+  ])('discards recovery for a different owner: %j', (change) => {
+    useAppStore.getState().authenticate(authenticatedSession());
+    useAppStore.getState().setLiveWorkspace(pendingTask());
+    useAppStore.getState().expireSession();
+    const next = authenticatedSession();
+    next.user = { ...next.user, ...change };
+    useAppStore.getState().authenticate(next);
+    expect(useAppStore.getState().liveWorkspace).toBeNull();
+    expect(useAppStore.getState().pendingSession).toBeNull();
+  });
+
+  it('cannot restore a task after explicit sign-out', async () => {
+    useAppStore.getState().authenticate(authenticatedSession());
+    useAppStore.getState().setLiveWorkspace(pendingTask());
+    useAppStore.getState().expireSession();
+    await useAppStore.getState().signOut();
+    useAppStore.getState().authenticate(authenticatedSession());
+    expect(useAppStore.getState().liveWorkspace).toBeNull();
+  });
+
+  it('ignores an account response arriving after sign-out', async () => {
+    useAppStore.getState().authenticate(authenticatedSession());
+    let finish!: (value: SessionAccount) => void;
+    vi.spyOn(authApi, 'getAccount').mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    vi.spyOn(authApi, 'logout').mockResolvedValue();
+    const refresh = useAppStore.getState().refreshSession();
+    await useAppStore.getState().signOut();
+    finish(account());
+    await refresh;
+    expect(useAppStore.getState()).toMatchObject({
+      user: null,
+      account: null,
       sessionStatus: 'anonymous',
     });
-    expect(sessionStorage.getItem('eric-shopify-session-v1')).toBeNull();
   });
 });

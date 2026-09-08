@@ -187,7 +187,7 @@ export function Workspace({
   const welcomeCreditsGranted = useAppStore((state) => state.welcomeCreditsGranted);
   const welcomeCreditsExpireDays = useAppStore((state) => state.welcomeCreditsExpireDays);
   const refreshSession = useAppStore((state) => state.refreshSession);
-  const resetSession = useAppStore((state) => state.resetSession);
+  const expireSession = useAppStore((state) => state.expireSession);
   const queueJob = useAppStore((state) => state.queueJob);
   const completeJob = useAppStore((state) => state.completeJob);
   const storedLiveWorkspace = useAppStore((state) => state.liveWorkspace);
@@ -347,7 +347,7 @@ export function Workspace({
         setPolicyConfigurationError(
           error instanceof Error ? error.message : 'ERiC could not load policy settings.',
         );
-        if (error instanceof EricDetectionError && error.invalidSession) resetSession();
+        if (error instanceof EricDetectionError && error.invalidSession) expireSession();
       })
       .finally(() => {
         if (policyController.current === controller) {
@@ -357,7 +357,7 @@ export function Workspace({
       });
 
     return () => controller.abort();
-  }, [ericAuth, liveMode, policyRevision, resetSession, surface]);
+  }, [ericAuth, liveMode, policyRevision, expireSession, surface]);
 
   useEffect(() => {
     const readyIds = new Set(
@@ -426,7 +426,7 @@ export function Workspace({
         setHistoryError(
           error instanceof Error ? error.message : 'ERiC could not load detection history.',
         );
-        if (error instanceof EricDetectionError && error.invalidSession) resetSession();
+        if (error instanceof EricDetectionError && error.invalidSession) expireSession();
       })
       .finally(() => {
         if (historyController.current === controller) {
@@ -441,7 +441,7 @@ export function Workspace({
         historyController.current = null;
       }
     };
-  }, [historyQuery, historyRevision, liveMode, resetSession, sessionToken, surface, user]);
+  }, [historyQuery, historyRevision, liveMode, expireSession, sessionToken, surface, user]);
 
   function refreshHistory() {
     setHistoryError('');
@@ -634,7 +634,7 @@ export function Workspace({
             error instanceof Error ? error.message : 'ERiC could not generate safer wording.',
         },
       }));
-      if (error instanceof EricDetectionError && error.invalidSession) resetSession();
+      if (error instanceof EricDetectionError && error.invalidSession) expireSession();
       await refreshAuthoritativeBalance(previousBalance);
     }
   }
@@ -643,7 +643,7 @@ export function Workspace({
     async (activity: LiveActivity, signal?: AbortSignal) => {
       if (!sessionToken || !user) {
         setResultError('The ERiC session expired. Open a new session and load the result again.');
-        resetSession();
+        expireSession();
         return;
       }
       if (!isAsyncDetectionCode(activity.code)) {
@@ -674,12 +674,12 @@ export function Workspace({
           `COMPLETED · Result needs to be loaded again for workspace ${activity.workspaceId}`,
         );
         setProgressMode('error');
-        if (error instanceof EricDetectionError && error.invalidSession) resetSession();
+        if (error instanceof EricDetectionError && error.invalidSession) expireSession();
       } finally {
         setResultLoading(false);
       }
     },
-    [resetSession, sessionToken, user],
+    [expireSession, sessionToken, user],
   );
 
   async function retryLiveResult() {
@@ -738,14 +738,14 @@ export function Workspace({
         if (!remainsRunning) {
           setLiveActivity((current) => (current ? { ...current, status: 'FAILED' } : current));
         }
-        if (error instanceof EricDetectionError && error.invalidSession) resetSession();
+        if (error instanceof EricDetectionError && error.invalidSession) expireSession();
       } finally {
         if (requestController.current === controller) requestController.current = null;
         setRunning(false);
         refreshHistory();
       }
     },
-    [balance, loadLiveResult, refreshAuthoritativeBalance, resetSession, sessionToken, user],
+    [balance, loadLiveResult, refreshAuthoritativeBalance, expireSession, sessionToken, user],
   );
 
   useEffect(() => {
@@ -772,7 +772,7 @@ export function Workspace({
     if (!sessionToken || !user) {
       setProgress('SESSION EXPIRED · Open a new ERiC session');
       setProgressMode('error');
-      resetSession();
+      expireSession();
       return;
     }
 
@@ -925,7 +925,7 @@ export function Workspace({
       if (!remainsRunning) {
         setLiveActivity((current) => (current ? { ...current, status: 'FAILED' } : current));
       }
-      if (error instanceof EricDetectionError && error.invalidSession) resetSession();
+      if (error instanceof EricDetectionError && error.invalidSession) expireSession();
     } finally {
       if (requestController.current === controller) requestController.current = null;
       setRunning(false);
@@ -1368,7 +1368,7 @@ export function Workspace({
             {liveMode && ericAuth ? (
               <PolicySettings
                 auth={ericAuth}
-                onInvalidSession={resetSession}
+                onInvalidSession={expireSession}
                 onLibraryChanged={() => setPolicyRevision((current) => current + 1)}
                 showHeading={false}
               />

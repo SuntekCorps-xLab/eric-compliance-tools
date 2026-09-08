@@ -1,4 +1,3 @@
-export type StorefrontApiEnvironment = 'sandbox' | 'production';
 export type StorefrontSurface = 'homepage' | 'workspace';
 
 export interface ShopifyStorefrontContext {
@@ -8,7 +7,6 @@ export interface ShopifyStorefrontContext {
   loginUrl: string;
   logoutUrl: string;
   proxyBase: string;
-  apiEnvironment: StorefrontApiEnvironment;
   tenantApiBase: string;
   accountEndpoint: string;
   detectionApiBase: string;
@@ -20,7 +18,8 @@ export interface ShopifyStorefrontContext {
 
 function sameOriginProxyBase(value: string | undefined): string {
   const candidate = value?.trim() || '/apps/eric';
-  if (!candidate.startsWith('/') || candidate.startsWith('//')) return '/apps/eric';
+  if (!candidate.startsWith('/') || candidate.startsWith('//') || /[\\?#]/.test(candidate))
+    return '/apps/eric';
   return candidate.replace(/\/$/, '');
 }
 
@@ -35,29 +34,68 @@ function publicHttpsUrl(value: string | undefined, label: string): string {
   }
 }
 
+function localRoute(value: string | undefined, fallback: string): string {
+  try {
+    const parsed = new URL(value?.trim() || fallback, window.location.origin);
+    if (
+      parsed.origin !== window.location.origin ||
+      parsed.pathname.startsWith('//') ||
+      parsed.username ||
+      parsed.password
+    )
+      return fallback;
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return fallback;
+  }
+}
+
+function optionalPublicLink(value: string | undefined): string {
+  if (!value?.trim()) return '';
+  try {
+    const parsed = new URL(value.trim(), window.location.origin);
+    if (parsed.username || parsed.password || parsed.protocol !== 'https:') return '';
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
+
+export function storefrontPublicLinks() {
+  const root = document.querySelector<HTMLElement>('[data-eric-root]:not([data-eric-invalid])');
+  const email = root?.dataset.supportEmail?.trim() || '';
+  return {
+    termsUrl: optionalPublicLink(root?.dataset.termsUrl),
+    privacyUrl: optionalPublicLink(root?.dataset.privacyUrl),
+    supportEmail: /^[A-Za-z0-9._+-]+@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}$/.test(
+      email,
+    )
+      ? email
+      : '',
+  };
+}
+
 export function readShopifyStorefrontContext(
-  root: HTMLElement | null = document.querySelector<HTMLElement>('[data-eric-root]'),
+  root: HTMLElement | null = document.querySelector<HTMLElement>(
+    '[data-eric-root]:not([data-eric-invalid])',
+  ),
 ): ShopifyStorefrontContext {
   if (!root) throw new Error('The ERiC Shopify storefront root is missing.');
-
-  const apiEnvironment: StorefrontApiEnvironment =
-    root.dataset.apiEnvironment === 'production' ? 'production' : 'sandbox';
 
   return {
     surface: root.dataset.surface === 'workspace' ? 'workspace' : 'homepage',
     customerLoggedIn: root.dataset.customerLoggedIn === 'true',
     customerDisplayName: root.dataset.customerDisplayName?.trim() || '',
-    loginUrl: root.dataset.loginUrl?.trim() || '/account/login',
-    logoutUrl: root.dataset.logoutUrl?.trim() || '/account/logout',
+    loginUrl: localRoute(root.dataset.loginUrl, '/account/login'),
+    logoutUrl: localRoute(root.dataset.logoutUrl, '/account/logout'),
     proxyBase: sameOriginProxyBase(root.dataset.proxyBase),
-    apiEnvironment,
     tenantApiBase: publicHttpsUrl(root.dataset.tenantApiBase, 'Tenant API base'),
     accountEndpoint: publicHttpsUrl(root.dataset.accountEndpoint, 'Account endpoint'),
     detectionApiBase: publicHttpsUrl(root.dataset.detectionApiBase, 'Compliance API base'),
     logoutEndpoint: publicHttpsUrl(root.dataset.logoutEndpoint, 'Logout endpoint'),
     hideThemeChrome: root.dataset.hideThemeChrome === 'true',
-    homeUrl: root.dataset.homeUrl?.trim() || '/',
-    workspaceUrl: root.dataset.workspaceUrl?.trim() || '/pages/workspace',
+    homeUrl: localRoute(root.dataset.homeUrl, '/'),
+    workspaceUrl: localRoute(root.dataset.workspaceUrl, '/pages/workspace'),
   };
 }
 

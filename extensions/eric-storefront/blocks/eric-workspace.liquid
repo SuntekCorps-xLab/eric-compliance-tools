@@ -1,13 +1,19 @@
 {% comment %}
   ERiC dedicated compliance workspace. Add this app block to the Shopify page
-  whose handle is "workspace". Shopify owns customer authentication; ERiC owns
+  selected in the Workspace page setting. Shopify owns customer authentication; ERiC owns
   the linked workspace session, permissions, task state, evidence, and points.
 {% endcomment %}
 
 {{ 'eric-storefront.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'eric-storefront.js' | asset_url }}" defer></script>
 
-{%- assign eric_return_to = '/pages/workspace' -%}
+{%- assign eric_home_prefix = routes.root_url | append: '/' | replace: '//', '/' -%}
+{%- assign eric_workspace_url = block.settings.workspace_page.url | default: '/pages/workspace' -%}
+{%- assign eric_workspace_prefix = eric_workspace_url | slice: 0, eric_home_prefix.size -%}
+{%- unless eric_workspace_prefix == eric_home_prefix -%}
+  {%- assign eric_workspace_url = routes.root_url | append: eric_workspace_url | replace: '//', '/' -%}
+{%- endunless -%}
+{%- assign eric_return_to = eric_workspace_url -%}
 {%- if routes.storefront_login_url != blank -%}
   {%- assign eric_login_url = routes.storefront_login_url -%}
 {%- else -%}
@@ -58,36 +64,18 @@
     data-login-url="{{ eric_login_url | escape }}"
     data-logout-url="{{ routes.account_logout_url | escape }}"
     data-proxy-base="{{ block.settings.proxy_base | escape }}"
-    data-api-environment="{{ block.settings.api_environment | escape }}"
     data-tenant-api-base="{{ block.settings.tenant_api_base | escape }}"
     data-account-endpoint="{{ block.settings.account_endpoint | escape }}"
     data-detection-api-base="{{ block.settings.detection_api_base | escape }}"
     data-logout-endpoint="{{ block.settings.logout_endpoint | escape }}"
     data-hide-theme-chrome="{% if block.settings.hide_theme_chrome %}true{% else %}false{% endif %}"
-    data-home-url="/"
-    data-workspace-url="/pages/workspace"
+    data-home-url="{{ routes.root_url | escape }}"
+    data-workspace-url="{{ eric_workspace_url | escape }}"
+    data-terms-url="{{ block.settings.terms_url | escape }}"
+    data-privacy-url="{{ block.settings.privacy_url | escape }}"
+    data-support-email="{{ block.settings.support_email | escape }}"
     {{ block.shopify_attributes }}
   ></div>
-  {% if block.settings.hide_theme_chrome %}
-    <script>
-      (function () {
-        document.documentElement.classList.add('eric-workspace-active');
-        var root = document.currentScript.parentElement.querySelector('[data-eric-root]');
-        var branch = root;
-        while (branch && branch.parentElement && branch.parentElement !== document.body) {
-          var parent = branch.parentElement;
-          parent.classList.add('eric-workspace-layout-host');
-          Array.prototype.forEach.call(parent.children, function (child) {
-            if (child !== branch && !/^(SCRIPT|STYLE|LINK)$/.test(child.tagName)) {
-              child.classList.add('eric-workspace-theme-chrome');
-            }
-          });
-          branch = parent;
-        }
-        if (branch) branch.classList.add('eric-workspace-shell');
-      })();
-    </script>
-  {% endif %}
 </div>
 
 {% schema %}
@@ -96,14 +84,28 @@
   "target": "section",
   "settings": [
     {
-      "type": "select",
-      "id": "api_environment",
-      "label": "ERiC API environment",
-      "default": "production",
-      "options": [
-        { "value": "sandbox", "label": "Sandbox" },
-        { "value": "production", "label": "Production" }
-      ]
+      "type": "page",
+      "id": "workspace_page",
+      "label": "Workspace page",
+      "info": "Select the page containing the ERiC workspace block. Defaults to /pages/workspace."
+    },
+    {
+      "type": "url",
+      "id": "terms_url",
+      "label": "Terms URL",
+      "info": "Published terms for your service. Hidden when unset."
+    },
+    {
+      "type": "url",
+      "id": "privacy_url",
+      "label": "Privacy URL",
+      "info": "Published privacy notice for your service. Hidden when unset."
+    },
+    {
+      "type": "text",
+      "id": "support_email",
+      "label": "Support email",
+      "info": "A monitored support mailbox. Hidden when unset."
     },
     {
       "type": "text",

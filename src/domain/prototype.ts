@@ -107,7 +107,7 @@ export function validateRegistrationProfile(profile: RegistrationProfile): strin
     return 'Choose your primary selling market.';
   }
   if (!validateEmail(profile.email)) return 'Enter a valid work email address.';
-  if (!profile.acceptedTerms) return 'Accept the Terms and Privacy notice to continue.';
+  if (!profile.acceptedTerms) return 'Acknowledge the local demo notice to continue.';
   return '';
 }
 

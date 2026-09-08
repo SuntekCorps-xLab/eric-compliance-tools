@@ -66,7 +66,10 @@ export async function readEricEnvelope<T>(
   try {
     payload = (await response.json()) as EricEnvelope<T>;
   } catch {
-    throw new EricApiError(`ERiC returned an unreadable response (HTTP ${response.status}).`);
+    throw new EricApiError(
+      `ERiC returned an unreadable response (HTTP ${response.status}).`,
+      response.status === 401,
+    );
   }
 
   const code = Number(payload.code ?? response.status);

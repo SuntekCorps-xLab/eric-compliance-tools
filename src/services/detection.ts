@@ -612,10 +612,21 @@ export async function waitForDetection(
 ): Promise<DetectionStatus> {
   const intervalMs = options.intervalMs ?? 2000;
   const maxAttempts = options.maxAttempts ?? 45;
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const status = await getDetectionStatus(workspaceId, mode, auth, options.signal);
-    if (status.state === 'completed') return status;
-    if (status.state === 'failed') {
+  const deadline = Date.now() + 90_000;
+  for (let attempt = 0; attempt < maxAttempts && Date.now() < deadline; attempt += 1) {
+    let status: DetectionStatus | undefined;
+    try {
+      const timeout = AbortSignal.timeout(Math.max(1, Math.min(10_000, deadline - Date.now())));
+      const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
+      status = await getDetectionStatus(workspaceId, mode, auth, signal);
+    } catch (error) {
+      if (options.signal?.aborted) throw options.signal.reason;
+      if (error instanceof EricApiError && error.invalidSession) throw error;
+      // An unreadable status is not evidence that the server task failed.
+      // Only retry this read; never create another task here.
+    }
+    if (status?.state === 'completed') return status;
+    if (status?.state === 'failed') {
       throw new EricApiError(
         'ERiC could not complete this detection task. You can edit the input and retry.',
       );
@@ -626,10 +637,13 @@ export async function waitForDetection(
           window.clearTimeout(timer);
           reject(new DOMException('The request was cancelled.', 'AbortError'));
         };
-        const timer = window.setTimeout(() => {
-          options.signal?.removeEventListener('abort', onAbort);
-          resolve();
-        }, intervalMs);
+        const timer = window.setTimeout(
+          () => {
+            options.signal?.removeEventListener('abort', onAbort);
+            resolve();
+          },
+          Math.min(intervalMs, Math.max(0, deadline - Date.now())),
+        );
         if (options.signal?.aborted) onAbort();
         else options.signal?.addEventListener('abort', onAbort, { once: true });
       });

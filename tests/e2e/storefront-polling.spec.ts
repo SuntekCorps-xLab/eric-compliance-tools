@@ -2,15 +2,34 @@ import { expect, test, type Page } from '@playwright/test';
 
 const harness = '/tests/fixtures/shopify-storefront-harness.html?surface=workspace&authenticated=1';
 
-async function setupTask(page: Page, initialStatus = 1) {
-  const task = { status: initialStatus, submissions: 0, polls: 0, results: 0 };
+async function setupTask(page: Page, initialStatus = 1, guest = false, invalidSibling = false) {
+  const task = {
+    status: initialStatus,
+    submissions: 0,
+    polls: 0,
+    results: 0,
+    sessions: 0,
+    transport: 200,
+  };
   // Accelerate only the polling delay; run the real 45-attempt loop and storefront bundle.
   await page.addInitScript(() => {
     const schedule = window.setTimeout.bind(window);
     window.setTimeout = (handler, timeout, ...args: unknown[]) =>
       schedule(handler, timeout === 2000 ? 0 : timeout, ...args);
   });
-  await page.route('**/apps/eric/session', async (route) => {
+  if (guest)
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'eric-shopify-guest-v1',
+        JSON.stringify({
+          deviceId: 'synthetic-device-123456789',
+          resumeToken: 'synthetic-resume-token-long-enough-123',
+          expiresAt: '2099-01-01T00:00:00Z',
+        }),
+      );
+    });
+  await page.route('**/apps/eric/*session', async (route) => {
+    task.sessions += 1;
     await route.fulfill({
       json: {
         code: 200,
@@ -18,6 +37,17 @@ async function setupTask(page: Page, initialStatus = 1) {
         data: {
           user: { id: 42, account: 'synthetic-user', last_login_tenant: 5164 },
           shopify: { display_name: 'Synthetic customer', is_first_register: false },
+          ...(guest
+            ? {
+                demo: {
+                  is_demo: true,
+                  resume_token: 'synthetic-resume-token-long-enough-123',
+                  expires_at: '2099-01-01T00:00:00Z',
+                  initial_points: 500,
+                  remaining_refills: 0,
+                },
+              }
+            : {}),
         },
       },
     });
@@ -54,6 +84,14 @@ async function setupTask(page: Page, initialStatus = 1) {
       case '/Eric/v5/get-check-status':
         expect(url.searchParams.get('work_space_id')).toBe('9876');
         task.polls += 1;
+        if (task.transport !== 200) {
+          await route.fulfill({
+            status: task.transport,
+            contentType: 'text/html',
+            body: '<html>Unavailable</html>',
+          });
+          return;
+        }
         data = { trademark: task.status };
         break;
       case '/Eric/v4/trademark/detail':
@@ -66,7 +104,10 @@ async function setupTask(page: Page, initialStatus = 1) {
     }
     await route.fulfill({ json: { code: 200, data, request_id: 'synthetic-request' } });
   });
-  await page.goto(harness);
+  await page.goto(
+    (guest ? harness.replace('&authenticated=1', '') : harness) +
+      (invalidSibling ? '&sibling=1' : ''),
+  );
   await expect(page.getByRole('heading', { name: 'Compliance workspace' })).toBeVisible();
   await page.locator('#product-title').fill('Synthetic desk lamp');
   return task;
@@ -81,34 +122,36 @@ async function savedActivity(page: Page) {
   });
 }
 
-test('retains a timed-out task across reload and resumes it without another submission', async ({
-  page,
-}) => {
-  const task = await setupTask(page);
-  await page.getByRole('button', { name: 'Run live check →' }).click();
-  const resume = page.getByRole('button', { name: 'Check existing task again →' });
-  await expect(resume).toBeEnabled();
-  await expect(page.getByText(/^RUNNING · The ERiC task is still running/)).toBeVisible();
-  expect(task).toMatchObject({ submissions: 1, polls: 45, results: 0 });
-  expect(await savedActivity(page)).toMatchObject({ workspaceId: '9876', status: 'RUNNING' });
+for (const guest of [false, true]) {
+  test(`retains a timed-out ${guest ? 'guest' : 'customer'} task across reload without another submission`, async ({
+    page,
+  }) => {
+    const task = await setupTask(page, 1, guest);
+    await page.getByRole('button', { name: 'Run live check →' }).click();
+    const resume = page.getByRole('button', { name: 'Check existing task again →' });
+    await expect(resume).toBeEnabled();
+    await expect(page.getByText(/^RUNNING · The ERiC task is still running/)).toBeVisible();
+    expect(task).toMatchObject({ submissions: 1, polls: 45, results: 0 });
+    expect(await savedActivity(page)).toMatchObject({ workspaceId: '9876', status: 'RUNNING' });
 
-  await page.reload();
-  await expect(resume).toBeEnabled();
-  await expect(page.getByText(/^RUNNING · The ERiC task is still running/)).toBeVisible();
-  expect(task).toMatchObject({ submissions: 1, polls: 90, results: 0 });
-  expect(await savedActivity(page)).toMatchObject({ workspaceId: '9876', status: 'RUNNING' });
+    await page.reload();
+    await expect(resume).toBeEnabled();
+    await expect(page.getByText(/^RUNNING · The ERiC task is still running/)).toBeVisible();
+    expect(task).toMatchObject({ submissions: 1, polls: 90, results: 0 });
+    expect(await savedActivity(page)).toMatchObject({ workspaceId: '9876', status: 'RUNNING' });
 
-  // Resuming an existing task must not require re-entering the original form input.
-  await page.locator('#product-title').fill('');
-  task.status = 3;
-  await resume.click();
-  await expect(
-    page.getByRole('heading', { name: 'Detection completed', exact: true }),
-  ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Run live check →' })).toBeEnabled();
-  expect(task).toMatchObject({ submissions: 1, polls: 91, results: 1 });
-  expect(await savedActivity(page)).toBeNull();
-});
+    // Resuming an existing task must not require re-entering the original form input.
+    await page.locator('#product-title').fill('');
+    task.status = 3;
+    await resume.click();
+    await expect(
+      page.getByRole('heading', { name: 'Detection completed', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Run live check →' })).toBeEnabled();
+    expect(task).toMatchObject({ submissions: 1, polls: 91, results: 1 });
+    expect(await savedActivity(page)).toBeNull();
+  });
+}
 
 test('keeps server-reported failure distinct from polling exhaustion', async ({ page }) => {
   const task = await setupTask(page, 2);
@@ -118,4 +161,61 @@ test('keeps server-reported failure distinct from polling exhaustion', async ({ 
   await expect(page.getByRole('button', { name: 'Check existing task again →' })).toHaveCount(0);
   expect(task).toMatchObject({ submissions: 1, polls: 1, results: 0 });
   expect(await savedActivity(page)).toBeNull();
+});
+
+test('preserves a task through a gateway outage and resumes the same ID', async ({ page }) => {
+  const task = await setupTask(page);
+  task.transport = 502;
+  await page.getByRole('button', { name: 'Run live check →' }).click();
+  const resume = page.getByRole('button', { name: 'Check existing task again →' });
+  await expect(resume).toBeEnabled();
+  expect(await savedActivity(page)).toMatchObject({ workspaceId: '9876', status: 'RUNNING' });
+  expect(task).toMatchObject({ submissions: 1, polls: 45 });
+  task.transport = 200;
+  task.status = 3;
+  await resume.click();
+  await expect(
+    page.getByRole('heading', { name: 'Detection completed', exact: true }),
+  ).toBeVisible();
+  expect(task.submissions).toBe(1);
+});
+
+test('expires a rejected session and reconnects explicitly before recovering its task', async ({
+  page,
+}) => {
+  const task = await setupTask(page);
+  task.transport = 401;
+  await page.getByRole('button', { name: 'Run live check →' }).click();
+  await expect(page.getByRole('alert')).toContainText('session expired');
+  await expect(page.getByRole('button', { name: 'Run live check →' })).toHaveCount(0);
+  expect(task).toMatchObject({ submissions: 1, polls: 1, sessions: 1 });
+  const saved = await page.evaluate(
+    () =>
+      JSON.parse(sessionStorage.getItem('eric-shopify-session-v1') ?? '{}') as { state: unknown },
+  );
+  expect(saved.state).toMatchObject({
+    sessionToken: null,
+    user: null,
+    pendingSession: { workspace: { activity: { workspaceId: '9876' } } },
+  });
+  task.transport = 200;
+  task.status = 3;
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Detection completed', exact: true }),
+  ).toBeVisible();
+  expect(task).toMatchObject({ submissions: 1, sessions: 2, results: 1 });
+});
+
+test('uses the validated sibling context for authenticated task requests', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const task = await setupTask(page, 3, false, true);
+  await expect(page.getByRole('alert')).toContainText('configuration unavailable');
+  await page.getByRole('button', { name: 'Run live check →' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Detection completed', exact: true }),
+  ).toBeVisible();
+  expect(task).toMatchObject({ submissions: 1, sessions: 1, results: 1 });
+  expect(errors).toEqual([]);
 });

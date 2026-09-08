@@ -262,6 +262,28 @@ describe('ERiC live detection contract', () => {
     );
   });
 
+  it('retains a task when status transport is unavailable and retries without submitting', async () => {
+    vi.stubEnv('VITE_DETECTION_API_BASE_URL', 'https://example.test/eric/Eric');
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Network error'))
+      .mockResolvedValueOnce(new Response('<html>Unavailable</html>', { status: 502 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ code: 200, data: { trademark: 3 } })));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      waitForDetection('9876', 'trademark', auth, { intervalMs: 0 }),
+    ).resolves.toMatchObject({ state: 'completed' });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(
+      fetchMock.mock.calls.every(([url]) => String(url).includes('/v5/get-check-status')),
+    ).toBe(true);
+
+    fetchMock.mockRejectedValue(new TypeError('Offline'));
+    await expect(
+      waitForDetection('9876', 'trademark', auth, { intervalMs: 0, maxAttempts: 2 }),
+    ).rejects.toBeInstanceOf(DetectionPollingTimeoutError);
+  });
+
   it('reports polling exhaustion separately from a server-reported failure', async () => {
     vi.stubEnv('VITE_DETECTION_API_BASE_URL', 'https://example.test/eric/Eric');
     const fetchMock = vi

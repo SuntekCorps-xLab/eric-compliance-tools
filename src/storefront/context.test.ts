@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { readShopifyStorefrontContext } from './context';
+import { readShopifyStorefrontContext, storefrontPublicLinks } from './context';
 
 describe('Shopify storefront context', () => {
   afterEach(() => {
@@ -32,7 +32,6 @@ describe('Shopify storefront context', () => {
       customerLoggedIn: true,
       customerDisplayName: 'Alex Morgan',
       proxyBase: '/apps/eric',
-      apiEnvironment: 'sandbox',
       tenantApiBase: 'https://tenant-api.example.com',
       accountEndpoint: 'https://tenant-api.example.com/account/account',
       detectionApiBase: 'https://compliance-api.example.com/Eric',
@@ -71,5 +70,42 @@ describe('Shopify storefront context', () => {
     expect(() => readShopifyStorefrontContext()).toThrow(
       'Tenant API base must be configured as a public HTTPS URL',
     );
+  });
+  it('preserves localized custom routes while rejecting external navigation', () => {
+    document.body.innerHTML = `<div data-eric-root data-tenant-api-base="https://tenant.example.com" data-account-endpoint="https://tenant.example.com/account" data-detection-api-base="https://detection.example.com" data-logout-endpoint="https://tenant.example.com/logout" data-home-url="/fr/" data-workspace-url="/fr/pages/compliance" data-login-url="https://untrusted.example/login" data-logout-url="javascript:alert(1)"></div>`;
+    expect(readShopifyStorefrontContext()).toMatchObject({
+      homeUrl: '/fr/',
+      workspaceUrl: '/fr/pages/compliance',
+      loginUrl: '/account/login',
+      logoutUrl: '/account/logout',
+    });
+  });
+
+  it.each([
+    'javascript:alert(1)',
+    'https://user:secret@example.com/legal',
+    'http://example.com/legal',
+  ])('hides unsafe legal URL %s and mail headers', (url) => {
+    const root = document.createElement('div');
+    root.dataset.ericRoot = '';
+    root.dataset.termsUrl = url;
+    root.dataset.privacyUrl = 'https://shop.example.com/privacy';
+    root.dataset.supportEmail = 'support@example.com?subject=unsafe';
+    document.body.append(root);
+    expect(storefrontPublicLinks()).toEqual({
+      termsUrl: '',
+      privacyUrl: 'https://shop.example.com/privacy',
+      supportEmail: '',
+    });
+  });
+  it('rejects backslash proxy authorities and same-origin URLs that would become external paths', () => {
+    document.body.innerHTML = `<div data-eric-root data-tenant-api-base="https://tenant.example.com" data-account-endpoint="https://tenant.example.com/account" data-detection-api-base="https://detection.example.com" data-logout-endpoint="https://tenant.example.com/logout"></div>`;
+    const root = document.querySelector<HTMLElement>('[data-eric-root]')!;
+    root.dataset.proxyBase = '/\\attacker.example';
+    root.dataset.workspaceUrl = `${window.location.origin}//attacker.example/path`;
+    expect(readShopifyStorefrontContext()).toMatchObject({
+      proxyBase: '/apps/eric',
+      workspaceUrl: '/pages/workspace',
+    });
   });
 });

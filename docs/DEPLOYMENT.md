@@ -8,7 +8,7 @@ This guide covers the Shopify frontend only. Backend deployment, database migrat
 2. Confirm that backend API endpoints implement [the storefront contract](API_CONTRACT.md), are public over HTTPS, and permit only intended storefront origins where cross-origin calls are required.
 3. Confirm App Proxy signature verification, store allowlists, timestamp tolerance, and path configuration on the backend.
 4. Confirm that webhook secrets and Admin API credentials are stored only in the backend secret manager.
-5. Run:
+5. Use Node 24 and npm 11 (preferred: 11.13.0) for the Shopify CLI dependency/build step so lockfile platform metadata is preserved. Run:
 
    ```bash
    npm ci
@@ -19,7 +19,8 @@ This guide covers the Shopify frontend only. Backend deployment, database migrat
    shopify app build --no-color
    ```
 
-6. Review the generated extension diff and confirm that it contains no environment-specific endpoint, app ID, token, or customer data.
+6. Confirm `shopify app build` leaves `package-lock.json` unchanged with `git diff --exit-code -- package-lock.json`. If npm normalizes lockfile ordering during a dependency update, commit that normalization with the update after verifying that package versions, resolved URLs, and integrity hashes are unchanged.
+7. Review the generated extension diff and confirm that it contains no environment-specific endpoint, app ID, token, or customer data.
 
 ## Create an app version
 
@@ -41,8 +42,9 @@ In the Shopify Theme Editor:
 
 1. Enable `ERiC homepage` on the home page if ERiC should own the complete storefront landing surface.
 2. Add `ERiC workspace` to the intended Shopify page template.
-3. Configure the same App Proxy path and public HTTPS endpoints on both blocks.
-4. Save the theme without placing secrets in any field.
+3. Select the same **Workspace page** on both blocks, including when using a custom page handle. Configure the same App Proxy path and public HTTPS endpoints. These URLs and the proxy backend select the environment; no theme switch changes it.
+4. Set optional Terms URL, Privacy URL, and Support email to your published policies and monitored mailbox. Missing values are hidden.
+5. Save the theme without placing secrets in any field.
 
 ## Smoke test
 
