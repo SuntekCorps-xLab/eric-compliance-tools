@@ -162,6 +162,8 @@ For the local mock preview:
 
 The committed `.nvmrc` selects Node 24 (`nvm install && nvm use`). npm enforces the supported Node range through `.npmrc`; Node 23 and Node 25+ are unsupported by this project’s locked toolchain.
 
+For dependency updates and Shopify CLI build/deploy, use Node 24 and npm 11 (preferred: 11.13.0). npm 10.9.4 remains supported for `npm ci` and application checks, but rewriting the lockfile with it removes `libc` platform metadata.
+
 For Shopify integration, also provide:
 
 - Shopify CLI `3.85` or newer

@@ -263,6 +263,7 @@ describe('ERiC live detection contract', () => {
   });
 
   it('retains a task when status transport is unavailable and retries without submitting', async () => {
+    vi.stubEnv('VITE_DETECTION_API_BASE_URL', 'https://example.test/eric/Eric');
     const fetchMock = vi
       .fn()
       .mockRejectedValueOnce(new TypeError('Network error'))

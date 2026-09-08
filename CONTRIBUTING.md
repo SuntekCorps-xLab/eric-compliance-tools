@@ -14,6 +14,8 @@ npm run dev
 
 Use Node.js 22.22.0+ within major 22 or Node.js 24, and npm 10.9.4 (bundled with Node 22.22.0) or npm 11 (Node 24). The preferred package manager is npm 11.13.0; CI also covers the bundled Node 22 npm. Run `nvm install && nvm use` to select the default Node 24 runtime. npm rejects unsupported Node versions through `.npmrc`. Do not add real app IDs, store domains, credentials, customer data, or internal-only endpoints to tests, fixtures, documentation, or generated assets.
 
+Use Node 24 and npm 11 when updating dependencies or running Shopify CLI builds that write the lockfile. npm 10.9.4 supports `npm ci` and the test/build suite but its lockfile writer removes `libc` platform metadata. CI checks canonical lockfile output with the npm 11 writer and runs the full quality suite on both supported Node versions.
+
 Backend-facing changes must keep [the public storefront contract](docs/API_CONTRACT.md) current. Browser checks must never replace server-side authentication, tenant ownership, point accounting, payment verification, or compliance authorization.
 
 ## Branches and commits
