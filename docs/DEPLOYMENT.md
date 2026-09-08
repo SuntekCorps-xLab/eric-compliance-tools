@@ -19,7 +19,8 @@ This guide covers the Shopify frontend only. Backend deployment, database migrat
    shopify app build --no-color
    ```
 
-6. Review the generated extension diff and confirm that it contains no environment-specific endpoint, app ID, token, or customer data.
+6. Confirm `shopify app build` leaves `package-lock.json` unchanged with `git diff --exit-code -- package-lock.json`. If npm normalizes lockfile ordering during a dependency update, commit that normalization with the update after verifying that package versions, resolved URLs, and integrity hashes are unchanged.
+7. Review the generated extension diff and confirm that it contains no environment-specific endpoint, app ID, token, or customer data.
 
 ## Create an app version
 
@@ -41,8 +42,9 @@ In the Shopify Theme Editor:
 
 1. Enable `ERiC homepage` on the home page if ERiC should own the complete storefront landing surface.
 2. Add `ERiC workspace` to the intended Shopify page template.
-3. Configure the same App Proxy path and public HTTPS endpoints on both blocks.
-4. Save the theme without placing secrets in any field.
+3. Select the same **Workspace page** on both blocks, including when using a custom page handle. Configure the same App Proxy path and public HTTPS endpoints. These URLs and the proxy backend select the environment; no theme switch changes it.
+4. Set optional Terms URL, Privacy URL, and Support email to your published policies and monitored mailbox. Missing values are hidden.
+5. Save the theme without placing secrets in any field.
 
 ## Smoke test
 

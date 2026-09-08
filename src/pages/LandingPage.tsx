@@ -32,7 +32,12 @@ import {
   isShopifyStorefront,
   type AuthSessionResult,
 } from '../services/auth';
-import { storefrontLogoutUrl, storefrontWorkspaceUrl } from '../storefront/context';
+import {
+  storefrontHomeUrl,
+  storefrontLogoutUrl,
+  storefrontWorkspaceUrl,
+  storefrontPublicLinks,
+} from '../storefront/context';
 import { useAppStore } from '../store/app-store';
 
 const heroExamples: Array<{ code: DetectionCode; icon: string; text: string }> = [
@@ -415,6 +420,7 @@ function FlowVisual({
 }
 
 export function LandingPage() {
+  const publicLinks = storefrontPublicLinks();
   const user = useAppStore((state) => state.user);
   const authenticate = useAppStore((state) => state.authenticate);
   const sessionToken = useAppStore((state) => state.sessionToken);
@@ -508,7 +514,7 @@ export function LandingPage() {
     const wasGuest = user?.provider === 'shopify-guest';
     await signOut();
     if (isShopifyStorefront) {
-      window.location.assign(wasGuest ? '/' : storefrontLogoutUrl());
+      window.location.assign(wasGuest ? storefrontHomeUrl() : storefrontLogoutUrl());
     }
   }
 
@@ -769,17 +775,22 @@ export function LandingPage() {
           <h2 id="capabilities-title">All-in-one infringement and policy screening</h2>
           <div
             className="feature-stage"
+            onFocusCapture={() => setFeaturePaused(true)}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setFeaturePaused(false);
+            }}
             onMouseEnter={() => setFeaturePaused(true)}
-            onMouseLeave={() => setFeaturePaused(false)}
+            onMouseLeave={(event) => {
+              if (!event.currentTarget.contains(document.activeElement)) setFeaturePaused(false);
+            }}
           >
-            <div className="feature-list" role="tablist" aria-label="Compliance checks">
+            <div className="feature-list" role="group" aria-label="Compliance checks">
               {featureItems.map((item, index) => (
                 <button
                   className={`feature-item${index === featureIndex ? ' active' : ''}`}
                   key={item.code}
                   type="button"
-                  role="tab"
-                  aria-selected={index === featureIndex}
+                  aria-pressed={index === featureIndex}
                   onClick={() => setFeatureIndex(index)}
                 >
                   <span className="feature-title">
@@ -815,8 +826,14 @@ export function LandingPage() {
           <h2 id="flow-title">From first click to review-ready result</h2>
           <div
             className="feature-stage feature-stage-reversed"
+            onFocusCapture={() => setFlowPaused(true)}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setFlowPaused(false);
+            }}
             onMouseEnter={() => setFlowPaused(true)}
-            onMouseLeave={() => setFlowPaused(false)}
+            onMouseLeave={(event) => {
+              if (!event.currentTarget.contains(document.activeElement)) setFlowPaused(false);
+            }}
           >
             <div className="flow-visual" id="sample-report">
               <FlowVisual
@@ -825,14 +842,13 @@ export function LandingPage() {
                 onOpenEvidence={() => chooseRoute('D001')}
               />
             </div>
-            <div className="feature-list flow-list" role="tablist" aria-label="How ERiC works">
+            <div className="feature-list flow-list" role="group" aria-label="How ERiC works">
               {flowItems.map((item, index) => (
                 <button
                   className={`feature-item${index === flowIndex ? ' active' : ''}`}
                   key={item.label}
                   type="button"
-                  role="tab"
-                  aria-selected={index === flowIndex}
+                  aria-pressed={index === flowIndex}
                   onClick={() => setFlowIndex(index)}
                 >
                   <span className="feature-title">{item.label}</span>
@@ -889,12 +905,11 @@ export function LandingPage() {
         <section className="home-section insights" id="resources" aria-labelledby="insights-title">
           <p className="home-kicker">Resources</p>
           <h2 id="insights-title">ERiC insights</h2>
-          <div className="insight-tabs" role="tablist" aria-label="ERiC resources">
+          <div className="insight-tabs" role="group" aria-label="ERiC resources">
             <button
               className={insightTab === 'courses' ? 'active' : ''}
               type="button"
-              role="tab"
-              aria-selected={insightTab === 'courses'}
+              aria-pressed={insightTab === 'courses'}
               onClick={() => changeInsightTab('courses')}
             >
               Compliance courses
@@ -902,8 +917,7 @@ export function LandingPage() {
             <button
               className={insightTab === 'updates' ? 'active' : ''}
               type="button"
-              role="tab"
-              aria-selected={insightTab === 'updates'}
+              aria-pressed={insightTab === 'updates'}
               onClick={() => changeInsightTab('updates')}
             >
               Industry updates
@@ -1042,14 +1056,12 @@ export function LandingPage() {
         <Brand footer />
         <p>Product compliance signals for global ecommerce sellers.</p>
         <nav aria-label="Footer">
-          <a id="terms" href="#terms">
-            Terms
-          </a>
-          <a id="privacy" href="#privacy">
-            Privacy
-          </a>
+          {publicLinks.termsUrl ? <a href={publicLinks.termsUrl}>Terms</a> : null}
+          {publicLinks.privacyUrl ? <a href={publicLinks.privacyUrl}>Privacy</a> : null}
           <a href="#resources">API &amp; Open Source</a>
-          <a href="mailto:hello@example.com">Contact</a>
+          {publicLinks.supportEmail ? (
+            <a href={`mailto:${publicLinks.supportEmail}`}>Contact</a>
+          ) : null}
         </nav>
         <small>© 2026 ERiC Suite. Sample data is labeled.</small>
       </footer>

@@ -99,15 +99,12 @@
         fixtureParams.get('surface') === 'workspace' ? 'workspace' : 'homepage';
       const root = document.querySelector('[data-eric-root]');
       root.dataset.surface = fixtureSurface;
-      let fixtureShell = root;
-      while (fixtureShell.parentElement && fixtureShell.parentElement !== document.body) {
-        fixtureShell = fixtureShell.parentElement;
-        if (fixtureSurface === 'workspace') {
-          fixtureShell.classList.add('eric-workspace-layout-host');
-        }
+      if (fixtureParams.has('invalid')) root.dataset.tenantApiBase = '';
+      if (fixtureParams.has('sibling')) {
+        const invalidRoot = root.cloneNode();
+        invalidRoot.dataset.tenantApiBase = 'https://user:password@invalid.example';
+        root.before(invalidRoot);
       }
-      fixtureShell.classList.add(`eric-${fixtureSurface}-shell`);
-      document.documentElement.classList.add(`eric-${fixtureSurface}-active`);
       if (fixtureParams.get('authenticated') === '1') {
         root.dataset.customerLoggedIn = 'true';
         root.dataset.customerDisplayName = 'Liquid Display Name';

@@ -1,7 +1,9 @@
 import { Link, useSearchParams } from 'react-router';
+import { storefrontPublicLinks } from '../storefront/context';
 import { Brand } from '../components/Brand';
 
 export function AuthErrorPage() {
+  const { supportEmail } = storefrontPublicLinks();
   const [searchParams] = useSearchParams();
   const message =
     searchParams.get('message') ?? 'Shopify authorization was cancelled or could not be verified.';
@@ -18,9 +20,11 @@ export function AuthErrorPage() {
           <Link className="button button-primary" to="/">
             Try again
           </Link>
-          <a className="button button-quiet" href="mailto:hello@example.com">
-            Contact support
-          </a>
+          {supportEmail ? (
+            <a className="button button-quiet" href={`mailto:${supportEmail}`}>
+              Contact support
+            </a>
+          ) : null}
         </div>
         <small>No credits were granted and no ERiC session was created.</small>
       </section>

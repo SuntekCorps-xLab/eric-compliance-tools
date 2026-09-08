@@ -299,9 +299,7 @@ export function AuthDialog({
           </div>
           <label className="terms-check" htmlFor="register-terms">
             <input id="register-terms" name="acceptedTerms" type="checkbox" required />
-            <span>
-              I agree to the <a href="#terms">Terms</a> and <a href="#privacy">Privacy notice</a>.
-            </span>
+            <span>I understand this is a local demo and no real account will be created.</span>
           </label>
           <button className="button button-outline button-full" type="submit">
             Continue with demo email →

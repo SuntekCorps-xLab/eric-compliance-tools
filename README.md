@@ -158,7 +158,7 @@ shopify.app.example.toml          Safe Shopify app configuration template
 For the local mock preview:
 
 - Node.js `22.22.0` or newer within major 22, or Node.js `24`
-- npm `11`
+- npm `10.9.4` (bundled with Node 22.22.0) or npm `11` (Node 24); `packageManager` records the preferred npm 11.13.0 version
 
 The committed `.nvmrc` selects Node 24 (`nvm install && nvm use`). npm enforces the supported Node range through `.npmrc`; Node 23 and Node 25+ are unsupported by this project’s locked toolchain.
 
@@ -194,6 +194,10 @@ npx playwright install chromium webkit
 npm run test:e2e
 ```
 
+The browser runner starts its own server and fails immediately if port 4173 is occupied. Stop your preview first, or use `PLAYWRIGHT_PORT=4183 npm run test:e2e` (PowerShell: `$env:PLAYWRIGHT_PORT='4183'; npm run test:e2e`). Development and preview servers use strict ports too; they will not silently move to another port.
+
+For the locked Playwright 1.62.1, run the full Chromium + WebKit suite on macOS 15 or newer, or supported Linux/Windows with browser dependencies installed. Its [browser manifest](https://github.com/microsoft/playwright/blob/v1.62.1/packages/playwright-core/browsers.json) selects frozen WebKit revision 2251 on macOS 14 instead of 2336. The reported `Page.overrideSetting: Unknown setting: PushAPIEnabled` failure happens before the application loads. On macOS 14, use `npm run test:e2e -- --project=chromium` for a **partial local smoke test**, then run the full suite on a compatible host or CI before merging. Reinstalling that frozen binary does not make it current; do not skip the `mobile` WebKit project in release checks.
+
 The default `VITE_API_MODE=mock` provides a local interactive preview. It does not authenticate a Shopify customer, deduct points, create checkout, or call a production service.
 
 ## ⚙️ Configuration
@@ -228,8 +232,10 @@ The local file is intentionally ignored by Git. Add only the Shopify scopes that
 3. Start a Shopify development session with `shopify app dev` and select a development store you control.
 4. In the theme editor, enable **ERiC homepage** on the home page when ERiC should own the complete landing surface.
 5. Add **ERiC workspace** to a Shopify page such as `/pages/workspace`.
-6. Configure both blocks with the same App Proxy path and public HTTPS tenant, account, compliance, and logout endpoints.
+6. In both blocks, select the same **Workspace page** and configure the same App Proxy path and public HTTPS tenant, account, compliance, and logout endpoints. The page setting supports custom handles; an unset setting defaults to `/pages/workspace`. Home, workspace, and sign-in return paths retain the active storefront locale. Optional **Terms URL**, **Privacy URL**, and **Support email** settings must point to your published policies and monitored mailbox; unset or unsafe values are hidden.
 7. Test with a development customer and non-production backend before enabling the blocks in a live theme.
+
+The configured endpoints and the backend behind the App Proxy determine the environment. There is no sandbox toggle or automatic endpoint substitution; use non-production endpoints together with a non-production proxy backend for development.
 
 Theme settings are public presentation configuration. They must never contain credentials. The client rejects missing, non-HTTPS, or credential-bearing API URLs.
 

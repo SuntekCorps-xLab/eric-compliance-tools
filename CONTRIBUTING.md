@@ -12,7 +12,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Use Node.js 22.22.0+ within major 22 or Node.js 24, and npm 11. Run `nvm install && nvm use` to select the default Node 24 runtime. npm rejects unsupported Node versions through `.npmrc`. Do not add real app IDs, store domains, credentials, customer data, or internal-only endpoints to tests, fixtures, documentation, or generated assets.
+Use Node.js 22.22.0+ within major 22 or Node.js 24, and npm 10.9.4 (bundled with Node 22.22.0) or npm 11 (Node 24). The preferred package manager is npm 11.13.0; CI also covers the bundled Node 22 npm. Run `nvm install && nvm use` to select the default Node 24 runtime. npm rejects unsupported Node versions through `.npmrc`. Do not add real app IDs, store domains, credentials, customer data, or internal-only endpoints to tests, fixtures, documentation, or generated assets.
 
 Backend-facing changes must keep [the public storefront contract](docs/API_CONTRACT.md) current. Browser checks must never replace server-side authentication, tenant ownership, point accounting, payment verification, or compliance authorization.
 
@@ -33,6 +33,8 @@ npm run test:e2e
 npm audit --audit-level=high
 git diff --check
 ```
+
+See the [browser setup notes](README.md#install-and-verify) for occupied ports and the locked WebKit/macOS 14 limitation. Chromium-only checks are partial and do not replace the full Chromium + WebKit merge gate.
 
 If `src/`, fonts, media, or styles change, run `npm run build:storefront` and commit the generated extension assets. The build must leave the working tree clean on a second run.
 

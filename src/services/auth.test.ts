@@ -6,6 +6,7 @@ import {
   liveAuthApi,
   storefrontAuthApi,
 } from './auth';
+import { readShopifyStorefrontContext } from '../storefront/context';
 import type { ShopifyStorefrontContext } from '../storefront/context';
 
 function exchangeResponse(isFirstRegister = true) {
@@ -313,7 +314,6 @@ describe('Shopify theme storefront session', () => {
       loginUrl: '/customer_authentication/login?return_to=/',
       logoutUrl: '/account/logout',
       proxyBase: '/apps/eric-test',
-      apiEnvironment: 'sandbox',
       tenantApiBase: 'https://tenant-api.example.com',
       accountEndpoint: 'https://tenant-api.example.com/account/account',
       detectionApiBase: 'https://compliance-api.example.com/Eric',
@@ -358,7 +358,6 @@ describe('Shopify theme storefront session', () => {
       loginUrl: '/customer_authentication/login?return_to=/',
       logoutUrl: '/account/logout',
       proxyBase: '/apps/eric-test',
-      apiEnvironment: 'sandbox',
       tenantApiBase: 'https://tenant-api.example.com',
       accountEndpoint: 'https://tenant-api.example.com/account/account',
       detectionApiBase: 'https://compliance-api.example.com/Eric',
@@ -418,7 +417,6 @@ describe('Shopify theme storefront session', () => {
       loginUrl: '/account/login',
       logoutUrl: '/account/logout',
       proxyBase: '/apps/eric',
-      apiEnvironment: 'production',
       tenantApiBase: 'https://tenant-api.example.com',
       accountEndpoint: 'https://tenant-api.example.com/account/account',
       detectionApiBase: 'https://compliance-api.example.com/Eric',
@@ -460,7 +458,6 @@ describe('Shopify theme storefront session', () => {
       loginUrl: '/customer_authentication/login?return_to=/',
       logoutUrl: '/account/logout',
       proxyBase: '/apps/eric-test',
-      apiEnvironment: 'sandbox',
       tenantApiBase: 'https://tenant-api.example.com',
       accountEndpoint: 'https://tenant-api.example.com/account/account',
       detectionApiBase: 'https://compliance-api.example.com/Eric',
@@ -491,7 +488,6 @@ describe('Shopify theme storefront session', () => {
       loginUrl: '/customer_authentication/login?return_to=/',
       logoutUrl: '/account/logout',
       proxyBase: '/apps/eric-test',
-      apiEnvironment: 'sandbox',
       tenantApiBase: 'https://tenant-api.example.com',
       accountEndpoint: 'https://tenant-api.example.com/account/account',
       detectionApiBase: 'https://compliance-api.example.com/Eric',
@@ -504,5 +500,57 @@ describe('Shopify theme storefront session', () => {
     await expect(createShopifyStorefrontSession(context)).rejects.toThrow(
       'network gateway blocked the Shopify App Proxy request',
     );
+  });
+});
+
+describe('bounded storefront session requests', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    document.body.innerHTML = '';
+  });
+
+  it('applies the bootstrap deadline through a stalled account response body', async () => {
+    document.body.innerHTML = `<div data-eric-root data-tenant-api-base="https://tenant.example.com" data-account-endpoint="https://tenant.example.com/account" data-detection-api-base="https://detection.example.com" data-logout-endpoint="https://tenant.example.com/logout"></div>`;
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(exchangeResponse())
+      .mockImplementationOnce((_url: string, options: RequestInit) => {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: () =>
+            new Promise((_resolve, reject) =>
+              options.signal?.addEventListener(
+                'abort',
+                () => reject(new DOMException('Cancelled body read.', 'AbortError')),
+                {
+                  once: true,
+                },
+              ),
+            ),
+        });
+      });
+    vi.stubGlobal('fetch', fetchMock);
+    const assertion = expect(
+      createShopifyStorefrontSession(readShopifyStorefrontContext()),
+    ).rejects.toThrow('connection timed out');
+    await vi.advanceTimersByTimeAsync(15_001);
+    await assertion;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not send an exchange after its caller cancels', async () => {
+    document.body.innerHTML = `<div data-eric-root data-tenant-api-base="https://tenant.example.com" data-account-endpoint="https://tenant.example.com/account" data-detection-api-base="https://detection.example.com" data-logout-endpoint="https://tenant.example.com/logout"></div>`;
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      createShopifyStorefrontSession(readShopifyStorefrontContext(), controller.signal),
+    ).rejects.toHaveProperty('name', 'AbortError');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

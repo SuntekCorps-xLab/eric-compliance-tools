@@ -30,11 +30,11 @@ JSON endpoints should return:
 }
 ```
 
-The client treats a non-2xx HTTP status, `success: false`, a non-`200` application code, malformed JSON, or an invalid response shape as a failure. Error responses must not expose stack traces, credentials, internal hostnames, storage paths, SQL, proprietary policy logic, or customer data.
+Compliance endpoints reject non-2xx HTTP status, `success: false`, and non-`200` application codes. Session/account endpoints require HTTP success, `code: 200`, and their required fields below; `success` does not replace `code`. Malformed JSON and missing required session fields are failures. Error responses must not expose stack traces, credentials, internal hostnames, storage paths, SQL, proprietary policy logic, or customer data.
 
 ## Identity and authorization
 
-After session exchange, authenticated calls carry:
+After session exchange, compliance calls carry:
 
 ```http
 Authorization: Bearer <short-lived-session>
@@ -60,6 +60,64 @@ The backend must verify the Shopify signature, timestamp, shop allowlist, and cu
 
 A guest response additionally identifies the session as a demo and returns an opaque resume token, expiry, server-owned demo point allowance, and remaining refill allowance. Missing or unknown demo state must fail closed.
 
+### Customer exchange
+
+`POST /session` sends no JSON body, uses `credentials: same-origin`, and requests JSON. A successful response puts `token` at the **top level**, and identity inside `data.user`:
+
+```json
+{
+  "code": 200,
+  "token": "synthetic-short-lived-session",
+  "data": {
+    "user": { "id": 42, "account": "synthetic-customer", "last_login_tenant": 5164 },
+    "shopify": {
+      "shop_id": "synthetic-shop",
+      "storefront_domain": "shop.example.com",
+      "display_name": "Example customer",
+      "is_first_register": false
+    }
+  }
+}
+```
+
+A nonempty `data.user.id`, top-level `token`, and positive `data.user.last_login_tenant` are required. The client then loads the configured account endpoint before making the session ready. The Shopify fields are optional presentation metadata; an initial grant, when applicable, uses `gift_points` and `gift_expire_days` and must already be authorized by the backend.
+
+### Guest exchange
+
+`POST /demo-session` uses same-origin credentials and `Content-Type: application/json`:
+
+```json
+{ "device_id": "synthetic-device-123456789", "resume_token": "synthetic-opaque-resume-credential" }
+```
+
+The client generates a device ID and omits `resume_token` for an explicitly requested new demo. Passive page bootstrap only attempts a resume when a stored, unexpired credential exists. Neither field proves identity or entitlement; the backend validates and isolates the guest. A successful response uses the same top-level token and `data.user` shape, plus:
+
+```json
+{
+  "code": 200,
+  "token": "synthetic-short-lived-guest-session",
+  "data": {
+    "user": { "id": 84, "account": "synthetic-guest", "last_login_tenant": 9002 },
+    "demo": {
+      "is_demo": true,
+      "session_id": "synthetic-demo-session",
+      "resume_token": "synthetic-rotated-resume-credential",
+      "expires_at": "2099-01-07T00:00:00Z",
+      "idle_expires_at": "2099-01-02T00:00:00Z",
+      "display_name": "Guest demo",
+      "is_first_session": false,
+      "initial_points": 200,
+      "refill_points": 200,
+      "remaining_refills": 1
+    }
+  }
+}
+```
+
+`is_demo` must be the boolean `true`; `resume_token` and `expires_at` must be nonempty. Missing optional allowances default to zero, never to an inferred grant. Return valid future ISO timestamps for usable credentials. All values above are synthetic examples, not production credentials or a promise of credits.
+
+Session bootstrap, including account loading, has a 15-second deadline and a visible retry state. An expired session clears tokens and private account/result data. Only a pending task reference and its prior owner identity are retained; they can be restored after a successful exchange for the same user, tenant, provider, and shop. These browser hints never authorize server access. Reconnection is explicit and never submits a new detection. Sign-out clears the recovery reference too.
+
 ## Tenant and account routes
 
 | Method | Route                              | Purpose                                                               |
@@ -71,6 +129,8 @@ A guest response additionally identifies the session as a demo and returns an op
 | `GET`  | `/shopify/points/packs`            | Return the server-owned Shopify credit catalog                        |
 | `POST` | `/shopify/points/checkout-intents` | Create an idempotent Shopify Checkout intent for an allowed pack code |
 | `GET`  | `/shopify/points/purchases/latest` | Return the latest verified purchase state for the current account     |
+
+The account request is `GET <configured-account-endpoint>?tenant_id=<verified-tenant-id>` (existing endpoint query parameters are retained). It sends `Authorization`, `user_last_login_tenant`, and `user_id` when available, plus `Accept: application/json`; unlike compliance calls, it currently does **not** send `language`. The tenant query and identity headers remain untrusted hints. The response requires `code: 200` and `data`; return the authoritative tenant `id`, `company_name`, `point_total`, `point_margin`, and `permissions` array. Each permission uses `id`, `name`, `description`, `url`, `checked`, and `limit_count`. Optional API fields are `is_api_service_enable`, `is_api_token_enable`, and `api_expire_time`.
 
 The browser may send a pack code but never an authoritative price or point amount. The backend must select the current catalog entry, deny checkout for guests, create the Shopify order, and grant points only after verifying an authenticated paid-order webhook. Webhook processing must be idempotent and handle refunds according to the server ledger policy.
 
@@ -105,7 +165,7 @@ The TypeScript request builders and response normalizers under `src/services/` a
 
 Workspace IDs remain strings in client state and status-query parameters. Result and safer-wording POST bodies retain the existing JSON-number representation of `work_space_id`. The client rejects non-positive, non-decimal, or unsafe integer IDs before sending these POST requests; it never silently rounds an ID. Supporting larger IDs in these bodies requires a separately verified backend contract for decimal strings or lossless integer serialization. No backend accepting string IDs is bundled with this repository.
 
-Exhausting the client polling budget does not mean the server task failed. The workspace stays `RUNNING`, its resumable snapshot is retained, and **Check existing task again** polls the same ID without calling `/v5/save-check` again. A server-reported failed status remains a separate terminal outcome.
+Status reads retry network errors and unreadable responses within a 45-attempt / 90-second budget, with a maximum 10-second timeout per read. Authentication rejection immediately expires the session. Only a confirmed failed task status is terminal. Exhausting the client polling budget does not mean the server task failed. The workspace stays `RUNNING`, its resumable snapshot is retained, and **Check existing task again** polls the same ID without calling `/v5/save-check` again. A server-reported failed status remains a separate terminal outcome.
 
 ## Required invariants
 

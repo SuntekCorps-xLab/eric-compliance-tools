@@ -20,49 +20,53 @@ export function StorefrontApp({ context }: { context: ShopifyStorefrontContext }
   const guestRenewedAt = useRef(0);
   const passwordGateBlocked = error.includes('storefront password');
 
+  const bootstrapRequest = useRef<AbortController | null>(null);
+  const sessionStatus = useAppStore((state) => state.sessionStatus);
+  const expireSession = useAppStore((state) => state.expireSession);
+  const sessionExpired = sessionStatus === 'expired';
+
   const bootstrap = useCallback(async () => {
+    bootstrapRequest.current?.abort();
+    const controller = new AbortController();
+    bootstrapRequest.current = controller;
     setStatus('loading');
     setError('');
-
-    if (!context.customerLoggedIn) {
-      resetSession();
-      try {
-        const resumed = await createShopifyGuestSession(context);
-        if (resumed) {
-          authenticate(resumed);
-          guestRenewedAt.current = Date.now();
-        }
-      } catch (resumeError) {
-        console.warn('ERiC guest demo could not be resumed.', resumeError);
+    try {
+      const result = context.customerLoggedIn
+        ? await createShopifyStorefrontSession(context, controller.signal)
+        : await createShopifyGuestSession(context, false, controller.signal);
+      if (controller.signal.aborted) return;
+      if (result) {
+        authenticate({
+          ...result,
+          user: {
+            ...result.user,
+            displayName: context.customerDisplayName || result.user.displayName,
+          },
+        });
+        if (!context.customerLoggedIn) guestRenewedAt.current = Date.now();
+      } else {
+        resetSession();
       }
       setStatus('ready');
-      return;
-    }
-
-    try {
-      const result = await createShopifyStorefrontSession(context);
-      authenticate({
-        ...result,
-        user: {
-          ...result.user,
-          displayName: context.customerDisplayName || result.user.displayName,
-        },
-      });
-      setStatus('ready');
     } catch (bootstrapError) {
-      resetSession();
+      if (controller.signal.aborted) return;
+      expireSession();
       setError(
         bootstrapError instanceof Error
           ? bootstrapError.message
-          : 'ERiC could not connect this Shopify customer.',
+          : 'ERiC could not connect this session.',
       );
       setStatus('error');
     }
-  }, [authenticate, context, resetSession]);
+  }, [authenticate, context, expireSession, resetSession]);
 
   useEffect(() => {
     const bootstrapTimer = window.setTimeout(() => void bootstrap(), 0);
-    return () => window.clearTimeout(bootstrapTimer);
+    return () => {
+      window.clearTimeout(bootstrapTimer);
+      bootstrapRequest.current?.abort();
+    };
   }, [bootstrap]);
 
   useEffect(() => {
@@ -70,17 +74,28 @@ export function StorefrontApp({ context }: { context: ShopifyStorefrontContext }
     if (guestRenewedAt.current === 0) guestRenewedAt.current = Date.now();
 
     let active = true;
+    let renewing = false;
+    const renewalController = new AbortController();
     const renew = async () => {
-      if (!active || Date.now() - guestRenewedAt.current < 15 * 60 * 1000) return;
+      if (!active || renewing || Date.now() - guestRenewedAt.current < 15 * 60 * 1000) return;
+      const priorUser = useAppStore.getState().user;
+      renewing = true;
       try {
-        const renewed = await createShopifyGuestSession(context);
-        if (!active || !renewed) return;
+        const renewed = await createShopifyGuestSession(context, false, renewalController.signal);
+        if (!active || !renewed || useAppStore.getState().user !== priorUser) return;
         authenticate(renewed);
         guestRenewedAt.current = Date.now();
       } catch (renewError) {
-        if (renewError instanceof EricSessionError && renewError.invalidSession) {
-          resetSession();
+        if (
+          active &&
+          useAppStore.getState().user === priorUser &&
+          renewError instanceof EricSessionError &&
+          renewError.invalidSession
+        ) {
+          expireSession();
         }
+      } finally {
+        renewing = false;
       }
     };
     const timer = window.setInterval(() => void renew(), 12 * 60 * 60 * 1000);
@@ -90,19 +105,22 @@ export function StorefrontApp({ context }: { context: ShopifyStorefrontContext }
     document.addEventListener('visibilitychange', renewWhenVisible);
     return () => {
       active = false;
+      renewalController.abort();
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', renewWhenVisible);
     };
-  }, [authenticate, context, resetSession, user?.provider]);
+  }, [authenticate, context, expireSession, user?.provider]);
 
   return (
     <div className="eric-storefront-app">
-      {status === 'error' ? (
+      {status === 'error' || (sessionExpired && status !== 'loading') ? (
         <div className="storefront-session-notice error" role="alert">
           <span aria-hidden="true" />
           <p>
             <strong>ERiC session unavailable</strong>
-            <small>{error}</small>
+            <small>
+              {error || 'Your ERiC session expired. Reconnect to continue your existing task.'}
+            </small>
           </p>
           <div className="storefront-session-actions">
             {passwordGateBlocked ? <a href="/password">Unlock storefront</a> : null}
@@ -112,7 +130,14 @@ export function StorefrontApp({ context }: { context: ShopifyStorefrontContext }
           </div>
         </div>
       ) : null}
-      {status === 'loading' ? null : context.surface === 'workspace' ? (
+      {status === 'loading' ? (
+        <div className="storefront-session-notice" role="status">
+          <p>
+            <strong>Connecting to ERiC…</strong>
+            <small>Please wait while we verify your session.</small>
+          </p>
+        </div>
+      ) : status !== 'ready' || sessionExpired ? null : context.surface === 'workspace' ? (
         <WorkspacePage />
       ) : (
         <LandingPage />
